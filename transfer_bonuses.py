@@ -170,6 +170,6 @@ def parse_bonuses(html: str, today: date | None = None) -> list[dict]:
     return records
 
 
-def reconcile(conn: "duckdb.DuckDBPyConnection", records: list[dict], *, dry_run: bool = False) -> tuple[int, int]:
+def reconcile(conn: "duckdb.DuckDBPyConnection", records: list[dict], dry_run: bool = False) -> tuple[int, int]:
     """Snapshot-replace transfer_bonuses with fresh records. Implemented in Task 3."""
     raise NotImplementedError("reconcile is not yet implemented — coming in Task 3")
