@@ -219,3 +219,73 @@ def reconcile(
 
     logger.info("Deleted %d row(s), inserted %d row(s).", deleted, inserted)
     return deleted, inserted
+
+
+def fetch_page(url: str = SOURCE_URL, timeout: int = 15) -> str:
+    """Fetch the bonuses page. Raises httpx.HTTPStatusError on non-2xx."""
+    resp = httpx.get(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 (compatible; PointPilot/1.0)"},
+        timeout=timeout,
+        follow_redirects=True,
+    )
+    resp.raise_for_status()
+    return resp.text
+
+
+def connect() -> duckdb.DuckDBPyConnection:
+    """Open a UTC-pinned MotherDuck connection to the point_pilot database."""
+    if not os.environ.get("MOTHERDUCK_TOKEN"):
+        raise RuntimeError("MOTHERDUCK_TOKEN is not set — cannot connect to MotherDuck.")
+    conn = duckdb.connect("md:point_pilot")
+    conn.execute("SET TimeZone='UTC'")
+    return conn
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Fetch + parse, but skip DELETE/INSERT. Reports what would change.",
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        force=True,
+    )
+    install_log_shipping("points-pilot-jobs")
+
+    started = time.monotonic()
+    deleted = inserted = 0
+    ok = False
+    try:
+        html = fetch_page()
+        records = parse_bonuses(html)
+        logger.info("Parsed %d matching bonus row(s).", len(records))
+
+        conn = connect()
+        deleted, inserted = reconcile(conn, records, dry_run=args.dry_run)
+        ok = True
+        return 0
+    except Exception:
+        logger.exception("transfer_bonuses failed")
+        return 1
+    finally:
+        ship_metric({
+            "event": "transfer_bonuses_run",
+            "service": "points-pilot-jobs",
+            "job": "transfer_bonuses",
+            "ok": ok,
+            "deleted": deleted,
+            "inserted": inserted,
+            "dry_run": args.dry_run,
+            "duration_s": round(time.monotonic() - started, 3),
+        })
+        flush()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
