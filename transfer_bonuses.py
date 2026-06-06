@@ -170,6 +170,52 @@ def parse_bonuses(html: str, today: date | None = None) -> list[dict]:
     return records
 
 
-def reconcile(conn: "duckdb.DuckDBPyConnection", records: list[dict], dry_run: bool = False) -> tuple[int, int]:
-    """Snapshot-replace transfer_bonuses with fresh records. Implemented in Task 3."""
-    raise NotImplementedError("reconcile is not yet implemented — coming in Task 3")
+def reconcile(
+    conn: duckdb.DuckDBPyConnection,
+    records: list[dict],
+    dry_run: bool = False,
+) -> tuple[int, int]:
+    """Snapshot-replace transfer_bonuses for all airlines tracked in transfer_partners.
+
+    Deletes every row whose airline_code appears in transfer_partners, then
+    inserts the freshly-scraped records. Returns (rows_deleted, rows_inserted).
+
+    In dry_run mode: no DELETE/INSERT — returns (0, 0) and logs what would happen.
+    """
+    if dry_run:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM transfer_bonuses "
+            "WHERE airline_code IN (SELECT DISTINCT airline_code FROM transfer_partners)"
+        ).fetchone()[0]
+        logger.info(
+            "[dry-run] Would delete %d row(s) and insert %d row(s).",
+            count, len(records),
+        )
+        return 0, 0
+
+    deleted = conn.execute(
+        "DELETE FROM transfer_bonuses "
+        "WHERE airline_code IN (SELECT DISTINCT airline_code FROM transfer_partners)"
+    ).fetchone()[0]
+
+    inserted = 0
+    if records:
+        conn.executemany(
+            """
+            INSERT INTO transfer_bonuses
+                (bank_program_id, airline_code, bonus_pct, starts_at, ends_at, notes,
+                 created_at_utc, updated_at_utc)
+            VALUES (?, ?, ?, ?, ?, ?, now(), now())
+            """,
+            [
+                (
+                    r["bank_program_id"], r["airline_code"], r["bonus_pct"],
+                    r["starts_at"], r["ends_at"], r["notes"],
+                )
+                for r in records
+            ],
+        )
+        inserted = len(records)
+
+    logger.info("Deleted %d row(s), inserted %d row(s).", deleted, inserted)
+    return deleted, inserted
