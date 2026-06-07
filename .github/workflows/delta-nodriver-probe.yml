@@ -1,0 +1,38 @@
+name: delta-nodriver-probe
+
+# Manual-only feasibility spike: can nodriver clear Delta's Akamai block from a
+# DATACENTER (GitHub Actions Azure) IP? Headful Chrome under xvfb, capture-only.
+on:
+  workflow_dispatch: {}
+
+# Least-privilege: only needs to read the repo to check out the probe.
+permissions:
+  contents: read
+
+concurrency:
+  group: delta-nodriver-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run Delta nodriver probe (datacenter IP)
+        run: xvfb-run -a python delta_nodriver_probe.py --capture-only --env datacenter
+      - name: Upload raw captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: delta-captures-datacenter
+          path: captures/*.json
+          if-no-files-found: warn
