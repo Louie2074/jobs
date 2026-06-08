@@ -2,8 +2,9 @@
 
 GitHub's Azure runner IPs clear Delta's Akamai edge block (HTTP 200) where Fly's IP gets 444,
 so the nodriver browser scrape runs here. The packages under scrapers/ config/ db/ pipeline/
-are VENDORED from points-pilot-scrapers@browser-scraper-base (see VENDORED_DELTA.md) so this
-repo is self-contained — no cross-repo checkout / PAT needed.
+are vendored from points-pilot-scrapers (see VENDORED_DELTA.md) so this repo is self-contained —
+no cross-repo checkout / PAT needed. (scrapers/browser.py + scrapers/delta.py are canonical here;
+the rest are copies of the scraper repo's shared modules.)
 
 One-shot: scrapes the most-popular Delta routes (both directions) over a near-term date window
 via one warmed Chrome session, normalizes, and upserts into MotherDuck `flights`, then exits.
