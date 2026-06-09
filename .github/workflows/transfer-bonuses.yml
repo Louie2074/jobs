@@ -42,4 +42,6 @@ jobs:
         env:
           MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
+          # Optional Better Stack heartbeat — a missed run then raises an alert. No-op if unset.
+          BONUSES_HEARTBEAT_URL: ${{ secrets.BONUSES_HEARTBEAT_URL }}
         run: python transfer_bonuses.py ${{ inputs.dry_run && '--dry-run' || '' }}

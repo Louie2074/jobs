@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import time
+import urllib.request
 from datetime import date, datetime
 
 import duckdb
@@ -31,6 +32,19 @@ from bs4 import BeautifulSoup
 from obs import flush, install_log_shipping, ship_metric
 
 logger = logging.getLogger("transfer_bonuses")
+
+# Optional Better Stack heartbeat — a missed run then raises an alert.
+# No-op unless BONUSES_HEARTBEAT_URL is set.
+BONUSES_HEARTBEAT_URL = os.getenv("BONUSES_HEARTBEAT_URL", "")
+
+
+def _ping_heartbeat() -> None:
+    if not BONUSES_HEARTBEAT_URL:
+        return
+    try:
+        urllib.request.urlopen(BONUSES_HEARTBEAT_URL, timeout=10).close()
+    except Exception as exc:  # noqa: BLE001 — monitoring must never break the run
+        logger.warning("heartbeat ping failed: %s", exc)
 
 SOURCE_URL = "https://travel-on-points.com/current-point-transfer-bonuses/"
 
@@ -348,6 +362,9 @@ def main() -> int:
             "duration_s": round(time.monotonic() - started, 3),
         })
         flush()
+        # Heartbeat only on a successful real run (dry-runs are manual).
+        if ok and not args.dry_run:
+            _ping_heartbeat()
 
 
 if __name__ == "__main__":

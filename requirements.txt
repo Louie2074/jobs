@@ -1,7 +1,9 @@
 # Pinned to match the scraper/api services so the bundled MotherDuck extension
 # resolves identically across repos.
 duckdb==1.5.2
-nodriver>=0.35
+# Pinned (not floating) — browser.py is dual-copied from the scraper repo; both
+# must run the SAME nodriver. Keep in sync with scraper/pyproject.toml.
+nodriver==0.50.3
 beautifulsoup4>=4.12,<5
 pytest>=8,<9
 httpx[http2]>=0.27.0

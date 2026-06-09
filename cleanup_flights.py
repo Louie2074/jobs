@@ -27,10 +27,24 @@ import argparse
 import logging
 import os
 import time
+import urllib.request
 
 import duckdb
 
 from obs import flush, install_log_shipping, ship_metric
+
+# Optional Better Stack heartbeat — a missed daily run then raises an alert.
+# No-op unless CLEANUP_HEARTBEAT_URL is set (so local/dry runs stay quiet).
+CLEANUP_HEARTBEAT_URL = os.getenv("CLEANUP_HEARTBEAT_URL", "")
+
+
+def _ping_heartbeat() -> None:
+    if not CLEANUP_HEARTBEAT_URL:
+        return
+    try:
+        urllib.request.urlopen(CLEANUP_HEARTBEAT_URL, timeout=10).close()
+    except Exception as exc:  # noqa: BLE001 — monitoring must never break the run
+        logger.warning("heartbeat ping failed: %s", exc)
 
 logger = logging.getLogger("cleanup_flights")
 
@@ -112,6 +126,10 @@ def main() -> int:
             metric["would_delete"] = would_delete
         ship_metric(metric)
         flush()  # drain in-flight Better Stack POSTs before the process exits
+        # Heartbeat only on a successful real run — a failed/never-run cron then
+        # misses its ping and Better Stack alerts. Dry-runs (manual) don't ping.
+        if ok and not args.dry_run:
+            _ping_heartbeat()
 
 
 if __name__ == "__main__":
