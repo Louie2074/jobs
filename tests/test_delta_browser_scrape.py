@@ -1,6 +1,6 @@
 from datetime import date
 
-from delta_browser_scrape import _build_plan, _parse_dates_csv
+from delta_browser_scrape import DELTA_ROUTES, _build_plan, _parse_dates_csv
 
 
 def test_parse_dates_csv_valid():
@@ -37,3 +37,4 @@ def test_build_plan_cron_mode_both_directions():
     assert ("ATL", "LAX") in pairs
     assert ("LAX", "ATL") in pairs
     assert len(dates) == 2
+    assert len(pairs) == 2 * len(DELTA_ROUTES)

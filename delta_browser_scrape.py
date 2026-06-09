@@ -78,6 +78,7 @@ def _build_plan(
     Single-route mode (origin AND dest provided): just that route in the requested
     direction, over the supplied dates (or the near-term window if none given).
     Cron mode (no route): every popular route in both directions over the window.
+    A partial route (only one of origin/dest) is treated as cron mode.
     """
     if route_origin and route_dest:
         pairs = [(route_origin.upper(), route_dest.upper())]
@@ -85,6 +86,13 @@ def _build_plan(
         if not dates:
             dates = [today + timedelta(days=i) for i in range(scrape_days)]
         return pairs, dates
+
+    if bool(route_origin) != bool(route_dest):
+        logger.warning(
+            "partial route (origin=%r dest=%r) — ignoring and running cron mode",
+            route_origin,
+            route_dest,
+        )
 
     pairs = []
     for origin, dest in DELTA_ROUTES:
