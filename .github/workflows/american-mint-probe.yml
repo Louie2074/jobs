@@ -1,0 +1,39 @@
+name: american-mint-probe
+
+# One-shot datacenter-IP feasibility probe (manual only). AA award = miles pricing.
+# A residential headful Chrome mints a session + reads award data via a document-level form
+# POST to /booking/find-flights (data is SSR'd into #ng-state). The open question: does that
+# mint survive the GH Actions / Azure IP (Akamai already clears Delta *reads* here)?
+# Headful Chrome under xvfb. Inspect the uploaded screenshot artifact + the job log verdict.
+# Writes NOTHING to MotherDuck.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Probe AA mint (headful Chrome under xvfb, Azure IP)
+        run: xvfb-run -a python american_mint_probe.py
+      - name: Upload screenshot + html
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aa-mint-probe-artifacts
+          path: |
+            /tmp/aa_mint_probe.png
+            /tmp/aa_mint_probe.html
+          if-no-files-found: warn
