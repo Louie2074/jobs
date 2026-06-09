@@ -6,7 +6,20 @@ name: delta-browser-scrape
 # checkout / PAT is needed. Headful Chrome under xvfb (Akamai challenges headless). Writes Delta
 # rows into MotherDuck `flights`.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: "Origin IATA (single-route on-demand mode). Blank = popular-routes cron."
+        required: false
+        default: ""
+      destination:
+        description: "Destination IATA (single-route on-demand mode)."
+        required: false
+        default: ""
+      dates:
+        description: "Comma-separated ISO dates (YYYY-MM-DD). Blank = near-term window."
+        required: false
+        default: ""
   schedule:
     - cron: "0 8 * * *"   # daily at 08:00 UTC (clear of cleanup-flights 03:15 + transfer-bonuses 09:00)
 
@@ -14,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: delta-browser-scrape
+  group: ${{ inputs.origin != '' && format('delta-ondemand-{0}-{1}', inputs.origin, inputs.destination) || 'delta-browser-scrape' }}
   cancel-in-progress: false
 
 jobs:
@@ -37,4 +50,7 @@ jobs:
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           DELTA_HEARTBEAT_URL: ${{ secrets.DELTA_HEARTBEAT_URL }}
           DELTA_SCRAPE_DAYS: "5"
+          DELTA_ROUTE_ORIGIN: ${{ inputs.origin }}
+          DELTA_ROUTE_DEST: ${{ inputs.destination }}
+          DELTA_ROUTE_DATES: ${{ inputs.dates }}
         run: xvfb-run -a python delta_browser_scrape.py

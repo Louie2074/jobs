@@ -51,6 +51,11 @@ DELTA_ROUTES: list[tuple[str, str]] = [
 ]
 SCRAPE_DAYS = int(os.getenv("DELTA_SCRAPE_DAYS", "5"))  # near-term window, scraped every day
 
+# On-demand single-route mode (set by the workflow_dispatch inputs). Empty in the daily cron.
+ROUTE_ORIGIN = os.getenv("DELTA_ROUTE_ORIGIN", "").strip()
+ROUTE_DEST = os.getenv("DELTA_ROUTE_DEST", "").strip()
+ROUTE_DATES = os.getenv("DELTA_ROUTE_DATES", "").strip()
+
 
 def _parse_dates_csv(csv: str) -> list[date]:
     """Parse a comma-separated list of ISO YYYY-MM-DD dates, dropping blanks/invalid ones."""
@@ -154,14 +159,13 @@ def main() -> None:
     migrate()  # idempotent; ensures the flights table exists
     logger.info("Schema ready")
 
-    pairs: list[tuple[str, str]] = []
-    for origin, dest in DELTA_ROUTES:
-        pairs.append((origin, dest))
-        pairs.append((dest, origin))
-    dates = [date.today() + timedelta(days=i) for i in range(SCRAPE_DAYS)]
-    logger.info(
-        "Scraping %d routes × %d dates (DELTA_SCRAPE_DAYS=%d)", len(pairs), len(dates), SCRAPE_DAYS
-    )
+    pairs, dates = _build_plan(ROUTE_ORIGIN, ROUTE_DEST, ROUTE_DATES, SCRAPE_DAYS, date.today())
+    if ROUTE_ORIGIN and ROUTE_DEST:
+        logger.info(
+            "On-demand single-route mode: %s→%s × %d dates", ROUTE_ORIGIN, ROUTE_DEST, len(dates)
+        )
+    else:
+        logger.info("Cron mode: %d routes × %d dates", len(pairs), len(dates))
 
     scraper = DeltaScraper()
     started = time.monotonic()
