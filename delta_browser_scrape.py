@@ -224,3 +224,11 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    # nodriver leaves a pending asyncio task (Connection.aclose) after browser teardown
+    # that keeps the interpreter alive, so the process never exits on its own and the GitHub
+    # Actions step hangs until its 75-min timeout cancels it — every run, ~74 min after the
+    # ~50s scrape actually finishes (confirmed in the 2026-06-08 run logs). main() has already
+    # scraped, upserted, shipped its metric, and pinged the heartbeat by this point, so give
+    # the best-effort metric POST a moment to flush, then hard-exit past the stuck task.
+    time.sleep(3)
+    os._exit(0)
