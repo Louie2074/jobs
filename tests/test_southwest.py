@@ -93,3 +93,60 @@ def test_scraper_identity_and_warm_url():
     # warm_url is a real southwest.com booking page so Shape's fetch hook arms.
     assert s.warm_url.startswith("https://www.southwest.com/air/booking/select-depart.html")
     s.close()
+import json
+from datetime import date, datetime
+from pathlib import Path
+
+_FIXTURE = Path(__file__).parent / "fixtures" / "southwest_SEA-LAX_2026-06-22.json"
+
+
+def _records():
+    raw = json.loads(_FIXTURE.read_text())
+    return SouthwestScraper().normalize(raw, "SEA", "LAX", date(2026, 6, 22))
+
+
+def test_normalize_record_count():
+    # All 26 itineraries in the fixture have at least one AVAILABLE fare family.
+    assert len(_records()) == 26
+
+
+def test_normalize_constants_on_every_row():
+    for r in _records():
+        assert r.airline == "WN"
+        assert r.program == "Rapid Rewards"
+        assert r.source == "southwest"
+        assert r.cabin_class == "economy"
+        assert r.available_seats == -1
+        assert r.mixed_cabin is False
+        assert r.partner_airline is None
+        assert r.origin == "SEA"
+        assert r.destination == "LAX"
+        assert r.points_cost > 0
+
+
+def test_normalize_nonstop_record():
+    r = next(r for r in _records() if r.raw_flight_number == "WN 2396")
+    assert r.stops == 0
+    assert r.points_cost == 37500          # WGARED unavailable -> prices at PLURED
+    assert r.cash_cost == 5.60
+    assert r.fare_class == "H"
+    assert r.aircraft_type == "7S7"
+    assert r.layover_airports is None
+    assert r.layover_duration_minutes is None
+    assert r.duration_minutes == 255
+    assert r.next_day_arrival is False
+    assert r.is_saver is True               # PLURED -> discounted tier
+    assert r.departure_time_local == datetime.fromisoformat("2026-06-22T16:55-07:00")
+
+
+def test_normalize_connection_record():
+    r = next(r for r in _records() if r.raw_flight_number == "WN 1713+WN 4978")
+    assert r.stops == 1
+    assert r.layover_airports == "OAK"
+    assert r.layover_duration_minutes == 45   # OAK arr 12:35 -> dep 13:20
+    assert r.aircraft_type == "7M8"
+
+
+def test_normalize_next_day_record():
+    r = next(r for r in _records() if r.raw_flight_number == "WN 868")
+    assert r.next_day_arrival is True

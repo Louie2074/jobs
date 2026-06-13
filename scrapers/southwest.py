@@ -164,8 +164,115 @@ class SouthwestScraper(BrowserScraper):
         return await self._page_fetch(_SHOP_URL, body, headers)
 
     def normalize(self, raw: dict, origin: str, dest: str, travel_date: date) -> list[FlightRecord]:
-        """Placeholder — implemented in Task 5."""
-        return []
+        """Map Southwest's shopping response -> list[FlightRecord], one per bookable itinerary."""
+        if not raw:
+            return []
+        search = (raw.get("data") or {}).get("searchResults") or {}
+        air_products = search.get("airProducts") or []
+
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(hours=TTL_HOURS[PriorityTier.MED])
+        records: list[FlightRecord] = []
+        for ap in air_products:
+            if not isinstance(ap, dict):
+                continue
+            for det in ap.get("details") or []:
+                if not isinstance(det, dict):
+                    continue
+                try:
+                    rec = self._record_for_detail(det, origin, dest, travel_date, now, expires_at)
+                except Exception as exc:  # noqa: BLE001 — one bad itinerary must not sink the run
+                    logger.warning("[WN] error parsing itinerary: %s", exc, exc_info=True)
+                    continue
+                if rec is not None:
+                    records.append(rec)
+        return records
+
+    def _record_for_detail(
+        self,
+        det: dict,
+        origin: str,
+        dest: str,
+        travel_date: date,
+        now: datetime,
+        expires_at: datetime,
+    ) -> FlightRecord | None:
+        fare_products = (det.get("fareProducts") or {}).get("ADULT") or {}
+        chosen = _cheapest_available(fare_products)
+        if chosen is None:
+            return None
+        family, fp = chosen
+        fare = fp.get("fare") or {}
+        points = int(float((fare.get("totalFare") or {}).get("value")))
+        taxes_val = (fare.get("totalTaxesAndFees") or {}).get("value")
+        try:
+            cash = float(taxes_val)
+        except (TypeError, ValueError):
+            cash = 0.0
+
+        segs = _parse_segments(fp.get("productId"))
+        if not segs:
+            return None
+        stops = len(segs) - 1
+        flight_num = "+".join(f"WN {s['flight_num']}" for s in segs) or "UNKNOWN"
+        dep = segs[0]["depart"]
+        arr = segs[-1]["arrive"]
+        aircraft = (segs[0]["aircraft"] or "")[:10] or None
+        fare_class = (segs[0]["booking_class"] or "")[:10] or None
+
+        # Layover airports = the dest of every segment except the last (the connecting points).
+        layover_iatas = [s["dest"] for s in segs[:-1] if len(s.get("dest") or "") == 3]
+        layover_airports = ",".join(layover_iatas) if layover_iatas else None
+        layover_minutes: int | None = None
+        if stops > 0:
+            total = 0
+            ok = False
+            for i in range(len(segs) - 1):
+                a, b = segs[i]["arrive"], segs[i + 1]["depart"]
+                if a and b:
+                    total += int((b - a).total_seconds() / 60)
+                    ok = True
+            layover_minutes = total if ok else None
+
+        dur_raw = det.get("totalDuration")
+        try:
+            duration_mins = int(dur_raw) if dur_raw is not None else None
+        except (TypeError, ValueError):
+            duration_mins = None
+
+        is_saver = any(family.upper().startswith(p) for p in _SAVER_PREFIXES)
+
+        try:
+            return FlightRecord(
+                origin=origin.upper(),
+                destination=dest.upper(),
+                date=travel_date,
+                airline=self.airline_code,
+                program=self.program_name,
+                source=self.source,
+                points_cost=points,
+                cash_cost=cash,
+                cabin_class="economy",
+                stops=stops,
+                available_seats=-1,
+                scraped_at_utc=now,
+                expires_at_utc=expires_at,
+                raw_flight_number=flight_num,
+                partner_airline=None,
+                departure_time_local=dep,
+                arrival_time_local=arr,
+                duration_minutes=duration_mins,
+                aircraft_type=aircraft,
+                is_saver=is_saver,
+                fare_class=fare_class,
+                layover_airports=layover_airports,
+                layover_duration_minutes=layover_minutes,
+                next_day_arrival=bool(det.get("nextDay")),
+                mixed_cabin=False,
+            )
+        except (ValueError, TypeError) as exc:
+            logger.warning("[WN] skipping invalid record: %s", exc)
+            return None
 
 
 def _build_request_body(origin: str, dest: str, travel_date: date) -> dict:
