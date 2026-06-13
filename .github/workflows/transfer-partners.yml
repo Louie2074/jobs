@@ -1,0 +1,48 @@
+name: transfer-partners
+
+# Scrape thriftytraveler.com for bank→airline transfer partners + ratios and
+# full-table snapshot-replace the transfer_partners table in MotherDuck. Runs
+# twice monthly (1h after transfer-bonuses so partners is fresh first); can also
+# be triggered manually (with optional dry-run mode).
+on:
+  schedule:
+    # 10am UTC on the 1st and 15th of each month (transfer-bonuses runs at 09:00).
+    - cron: "0 10 1,15 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch + parse, but skip DELETE/INSERT"
+        type: boolean
+        default: false
+
+# Least-privilege: only needs repo checkout; DB credential via secret.
+permissions:
+  contents: read
+
+# Never let two runs overlap on the shared MotherDuck table.
+concurrency:
+  group: transfer-partners
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      # nodriver drives Chrome via CDP — install a real Chrome binary.
+      - uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      - run: pip install -r requirements.txt
+      - name: Scrape and reconcile transfer partners
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+          BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
+          # Optional Better Stack heartbeat — a missed run then raises an alert. No-op if unset.
+          TRANSFER_PARTNERS_HEARTBEAT_URL: ${{ secrets.TRANSFER_PARTNERS_HEARTBEAT_URL }}
+        run: python transfer_partners.py ${{ inputs.dry_run && '--dry-run' || '' }}
