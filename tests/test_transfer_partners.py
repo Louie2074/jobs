@@ -13,10 +13,68 @@ import duckdb
 import pytest
 
 from transfer_partners import (
+    _match_airline,
     _parse_ratio,
     parse_partners,
     reconcile,
 )
+
+# ---------------------------------------------------------------------------
+# _match_airline — distinctive whole-word keyword match against the site's
+# varied, per-bank "Program" cell text. Names below are verbatim from the live
+# thriftytraveler.com page.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "program,code,program_name",
+    [
+        # Tracked airlines under suffixed / per-bank-varying display names that an
+        # exact-string lookup dropped (the bug that motivated keyword matching).
+        ("Alaska Airlines Mileage Plan", "AS", "Mileage Plan"),  # Bilt→Alaska — key case
+        ("United MileagePlus", "UA", "MileagePlus"),
+        ("British Airways Avios", "BA", "British Airways Avios"),
+        ("British Airways Executive Club", "BA", "British Airways Avios"),
+        ("Air France/KLM Flying Blue", "AF", "Flying Blue"),
+        ("Aer Lingus AerClub", "EI", "Aer Lingus AerClub"),
+        ("Aer Lingus Avios", "EI", "Aer Lingus AerClub"),
+        ("Cathay Pacific AsiaMiles", "CX", "Asia Miles"),
+        ("Iberia Avios", "IB", "Iberia Plus"),
+        ("Turkish Miles & Smiles", "TK", "Miles&Smiles"),
+        ("Southwest Rapid Rewards", "WN", "Rapid Rewards"),
+        ("Virgin Atlantic Flying Club", "VS", "Virgin Atlantic"),
+        ("Singapore", "SQ", "KrisFlyer"),  # bare, no "Air"/"Airlines" suffix
+        ("ANA Mileage Club", "NH", "ANA Mileage Club"),  # whole-word "ana"
+    ],
+)
+def test_match_airline_tracked_variants(program, code, program_name):
+    assert _match_airline(program) == (code, program_name)
+
+
+@pytest.mark.parametrize(
+    "program",
+    [
+        "Emirates",            # EK — untracked
+        "Emirates Skywards",
+        "Qantas",              # QF — must NOT match \\bana\\b
+        "AeroMexico",          # AM — must NOT match "aeroplan"
+        "EVA Air",
+        "Finnair",
+        "Thai Airways",        # must NOT match "british airways"
+        "TAP Air Portugal",
+        "Spirit",
+        "Japan Airlines (JAL)",  # JL — untracked
+        "Virgin Red",          # NOT Virgin Atlantic — must stay unmatched
+    ],
+)
+def test_match_airline_untracked_returns_none(program):
+    assert _match_airline(program) is None
+
+
+def test_match_airline_ana_does_not_grab_avianca():
+    """Avianca resolves to AV, never NH (the \\bana\\b keyword must not over-match)."""
+    assert _match_airline("Avianca LifeMiles") == ("AV", "LifeMiles")
+    assert _match_airline("Avianca") == ("AV", "LifeMiles")
 
 # ---------------------------------------------------------------------------
 # _parse_ratio — site writes "bank : partner"; internal ratio = bank / partner

@@ -53,55 +53,61 @@ BANK_SECTIONS: list[tuple[str, int]] = [
     ("wells fargo", 7),
 ]
 
-# Normalized site "Program" cell → (airline_code, canonical program_name).
-# Gated to the already-tracked IATA set. program_name values match the prior
-# hardcoded banks.py. Unmapped names are skipped (logged).
-AIRLINE_MAP: dict[str, tuple[str, str]] = {
-    "american airlines": ("AA", "AAdvantage"),
-    "air canada": ("AC", "Aeroplan"),
-    "air canada aeroplan": ("AC", "Aeroplan"),
-    "aeroplan": ("AC", "Aeroplan"),
-    "air france": ("AF", "Flying Blue"),
-    "air france/klm": ("AF", "Flying Blue"),
-    "air france klm": ("AF", "Flying Blue"),
-    "flying blue": ("AF", "Flying Blue"),
-    "alaska": ("AS", "Mileage Plan"),
-    "alaska airlines": ("AS", "Mileage Plan"),
-    "mileage plan": ("AS", "Mileage Plan"),
-    "avianca": ("AV", "LifeMiles"),
-    "avianca lifemiles": ("AV", "LifeMiles"),
-    "lifemiles": ("AV", "LifeMiles"),
-    "jetblue": ("B6", "TrueBlue"),
-    "jetblue trueblue": ("B6", "TrueBlue"),
-    "trueblue": ("B6", "TrueBlue"),
-    "british airways": ("BA", "British Airways Avios"),
-    "cathay pacific": ("CX", "Asia Miles"),
-    "asia miles": ("CX", "Asia Miles"),
-    "delta": ("DL", "SkyMiles"),
-    "delta air lines": ("DL", "SkyMiles"),
-    "aer lingus": ("EI", "Aer Lingus AerClub"),
-    "etihad": ("EY", "Etihad Guest"),
-    "etihad airways": ("EY", "Etihad Guest"),
-    "hawaiian": ("HA", "HawaiianMiles"),
-    "hawaiian airlines": ("HA", "HawaiianMiles"),
-    "iberia": ("IB", "Iberia Plus"),
-    "ana": ("NH", "ANA Mileage Club"),
-    "all nippon airways": ("NH", "ANA Mileage Club"),
-    "qatar airways": ("QR", "Privilege Club"),
-    "qatar": ("QR", "Privilege Club"),
-    "singapore air": ("SQ", "KrisFlyer"),
-    "singapore airlines": ("SQ", "KrisFlyer"),
-    "krisflyer": ("SQ", "KrisFlyer"),
-    "turkish airlines": ("TK", "Miles&Smiles"),
-    "turkish": ("TK", "Miles&Smiles"),
-    "united": ("UA", "MileagePlus"),
-    "united airlines": ("UA", "MileagePlus"),
-    "mileageplus": ("UA", "MileagePlus"),
-    "virgin atlantic": ("VS", "Virgin Atlantic"),
-    "southwest": ("WN", "Rapid Rewards"),
-    "southwest airlines": ("WN", "Rapid Rewards"),
-    "rapid rewards": ("WN", "Rapid Rewards"),
-}
+# Airline matchers — gated to the already-tracked IATA set. The site appends and
+# varies program suffixes PER BANK ("Alaska Airlines Mileage Plan", "British
+# Airways Avios" vs "British Airways Executive Club", bare "Singapore", "United
+# MileagePlus"…), so an exact-string lookup silently drops tracked airlines.
+# Instead each airline carries a list of DISTINCTIVE keywords matched as whole
+# words (\bkeyword\b) against the lowercased "Program" cell — robust to suffix
+# drift. Keywords are collision-checked against every untracked partner the page
+# lists (Emirates, Qantas, Aeromexico, EVA Air, Finnair, Thai, TAP, Spirit, Japan
+# Airlines, Virgin Red…) so none of them match a tracked airline. Unmatched rows
+# are skipped + logged. program_name values match the prior hardcoded banks.py.
+#
+# Notes on a few deliberate keyword choices:
+#   BA  → "british airways" only (NOT "avios" — shared by BA/Iberia/Aer Lingus/Qatar).
+#   VS  → "virgin atlantic" only (NOT bare "virgin" — would wrongly grab "Virgin Red").
+#   NH  → whole-word "ana" via \b…\b (matches "ANA Mileage Club", not "Avianca"/"Qantas").
+#   AF  → "flying blue" (NOT "flying" — "Virgin Atlantic Flying Club" must stay VS).
+AIRLINE_MATCHERS: list[tuple[str, str, list[str]]] = [
+    ("AA", "AAdvantage", ["aadvantage", "american airlines"]),
+    ("AC", "Aeroplan", ["aeroplan", "air canada"]),
+    ("AF", "Flying Blue", ["flying blue", "air france"]),
+    ("AS", "Mileage Plan", ["alaska"]),
+    ("AV", "LifeMiles", ["avianca", "lifemiles"]),
+    ("B6", "TrueBlue", ["jetblue", "trueblue"]),
+    ("BA", "British Airways Avios", ["british airways"]),
+    ("CX", "Asia Miles", ["cathay"]),
+    ("DL", "SkyMiles", ["delta", "skymiles"]),
+    ("EI", "Aer Lingus AerClub", ["aer lingus"]),
+    ("EY", "Etihad Guest", ["etihad"]),
+    ("HA", "HawaiianMiles", ["hawaiian"]),
+    ("IB", "Iberia Plus", ["iberia"]),
+    ("NH", "ANA Mileage Club", ["all nippon", "ana"]),
+    ("QR", "Privilege Club", ["qatar", "privilege club"]),
+    ("SQ", "KrisFlyer", ["singapore", "krisflyer"]),
+    ("TK", "Miles&Smiles", ["turkish"]),
+    ("UA", "MileagePlus", ["mileageplus", "united"]),
+    ("VS", "Virgin Atlantic", ["virgin atlantic"]),
+    ("WN", "Rapid Rewards", ["southwest", "rapid rewards"]),
+]
+
+# Precompile one whole-word alternation regex per airline.
+_AIRLINE_PATTERNS: list[tuple[str, str, re.Pattern]] = [
+    (code, name, re.compile(r"\b(?:" + "|".join(re.escape(k) for k in kws) + r")\b"))
+    for code, name, kws in AIRLINE_MATCHERS
+]
+
+
+def _match_airline(program_raw: str) -> tuple[str, str] | None:
+    """Map a site "Program" cell to (airline_code, canonical program_name), or
+    None if it isn't one of the tracked airlines. Whole-word keyword match against
+    the lowercased cell; first matcher wins (keywords are mutually exclusive)."""
+    text = program_raw.lower()
+    for code, name, pattern in _AIRLINE_PATTERNS:
+        if pattern.search(text):
+            return code, name
+    return None
 
 MIN_TRANSFER = 1000
 TRANSFER_INCREMENT = 1000
@@ -187,7 +193,7 @@ def parse_partners(html: str) -> tuple[list[dict], dict]:
                 continue
             airline_rows += 1
 
-            mapped_airline = AIRLINE_MAP.get(program_raw.lower().strip())
+            mapped_airline = _match_airline(program_raw)
             if mapped_airline is None:
                 skipped_unmapped += 1
                 unmapped_names.append(program_raw)
@@ -321,8 +327,41 @@ def _find_chrome() -> str:
     )
 
 
-async def _fetch_with_nodriver(url: str, wait_secs: int = 5) -> str:
-    """Fetch *url* using a headless Chrome CDP session (WAF bypass)."""
+async def _wait_for_tables(page, min_tables: int, timeout_s: float) -> int:
+    """Poll the rendered DOM until it holds at least `min_tables` <table> elements
+    AND the count is stable across two reads (page has finished hydrating), or
+    until `timeout_s` elapses. Returns the last table count seen.
+
+    This page is large (~450 KB) and renders its partner tables via JS after the
+    initial load, so a fixed sleep races the render — a too-short wait yields zero
+    tables. Condition-based waiting adapts to however long the render takes and is
+    robust to the page getting heavier over time.
+    """
+    deadline = time.monotonic() + timeout_s
+    prev = -1
+    count = 0
+    while time.monotonic() < deadline:
+        await asyncio.sleep(1.0)
+        try:
+            count = int(await page.evaluate("document.querySelectorAll('table').length") or 0)
+        except Exception as exc:  # noqa: BLE001 — keep polling through transient eval hiccups
+            logger.debug("table-count probe failed: %s", exc)
+            count = 0
+        if count >= min_tables and count == prev:
+            break
+        prev = count
+    return count
+
+
+async def _fetch_with_nodriver(url: str, min_tables: int = 6, timeout_s: float = 30.0) -> str:
+    """Fetch *url* using a headless Chrome CDP session (WAF bypass).
+
+    Waits for the page's tables to finish rendering (condition-based, see
+    `_wait_for_tables`) rather than sleeping a fixed interval. `min_tables` is the
+    floor we expect once rendered (6 managed bank sections; the live page has 8
+    incl. the skipped Rove/Marriott). On timeout it returns whatever rendered —
+    parse_partners then fail-closes if no managed table is present.
+    """
     port = 9222
     chrome_bin = _find_chrome()
     proc = subprocess.Popen(
@@ -343,7 +382,8 @@ async def _fetch_with_nodriver(url: str, wait_secs: int = 5) -> str:
     try:
         browser = await uc.start(host="127.0.0.1", port=port)
         page = await browser.get(url)
-        await asyncio.sleep(wait_secs)  # allow JS/redirect to settle
+        count = await _wait_for_tables(page, min_tables=min_tables, timeout_s=timeout_s)
+        logger.info("page rendered with %d <table> element(s) before scrape", count)
         html = await page.get_content()
         browser.stop()  # sync method — no await
         return html
