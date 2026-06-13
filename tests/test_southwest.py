@@ -37,3 +37,33 @@ def test_parse_segments_malformed_returns_empty():
     assert _parse_segments("no-pipes-here") == []
     assert _parse_segments("") == []
     assert _parse_segments(None) == []
+
+
+from scrapers.southwest import _cheapest_available
+
+
+def _fp(status, points):
+    fare = {} if points is None else {"totalFare": {"currencyCode": "POINTS", "value": str(points)},
+                                      "totalTaxesAndFees": {"currencyCode": "USD", "value": "5.60"}}
+    return {"availabilityStatus": status, "fare": fare, "productId": "X|a,b,c,d,e,f,WN,WN,1,7S7"}
+
+
+def test_cheapest_available_skips_unavailable_and_picks_lowest():
+    fps = {
+        "WGARED": _fp("UNAVAILABLE", None),
+        "PLURED": _fp("AVAILABLE", 37500),
+        "ANYRED": _fp("AVAILABLE", 43000),
+        "BUSRED": _fp("AVAILABLE", 47000),
+    }
+    family, fp = _cheapest_available(fps)
+    assert family == "PLURED"
+    assert fp["fare"]["totalFare"]["value"] == "37500"
+
+
+def test_cheapest_available_none_when_all_unavailable():
+    fps = {"WGARED": _fp("UNAVAILABLE", None), "PLURED": _fp("UNAVAILABLE", None)}
+    assert _cheapest_available(fps) is None
+
+
+def test_cheapest_available_none_on_empty():
+    assert _cheapest_available({}) is None

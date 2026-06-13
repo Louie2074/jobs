@@ -79,3 +79,27 @@ def _parse_segments(product_id: object) -> list[dict]:
             }
         )
     return segs
+
+
+def _cheapest_available(fare_products: object) -> tuple[str, dict] | None:
+    """From a detail's fareProducts.ADULT map, return (family, fareProduct) for the cheapest
+    family whose availabilityStatus is AVAILABLE and whose totalFare (POINTS) is > 0.
+    None if nothing is bookable on this itinerary."""
+    if not isinstance(fare_products, dict):
+        return None
+    best: tuple[str, dict] | None = None
+    best_pts: int | None = None
+    for family, fp in fare_products.items():
+        if not isinstance(fp, dict) or fp.get("availabilityStatus") != "AVAILABLE":
+            continue
+        total = (fp.get("fare") or {}).get("totalFare") or {}
+        try:
+            pts = int(float(total.get("value")))
+        except (TypeError, ValueError):
+            continue
+        if pts <= 0:
+            continue
+        if best_pts is None or pts < best_pts:
+            best = (family, fp)
+            best_pts = pts
+    return best
