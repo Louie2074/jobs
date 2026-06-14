@@ -54,17 +54,17 @@ def test_match_airline_tracked_variants(program, code, program_name):
 @pytest.mark.parametrize(
     "program",
     [
-        "Emirates",            # EK — untracked
+        "Emirates",  # EK — untracked
         "Emirates Skywards",
-        "Qantas",              # QF — must NOT match \\bana\\b
-        "AeroMexico",          # AM — must NOT match "aeroplan"
+        "Qantas",  # QF — must NOT match \\bana\\b
+        "AeroMexico",  # AM — must NOT match "aeroplan"
         "EVA Air",
         "Finnair",
-        "Thai Airways",        # must NOT match "british airways"
+        "Thai Airways",  # must NOT match "british airways"
         "TAP Air Portugal",
         "Spirit",
         "Japan Airlines (JAL)",  # JL — untracked
-        "Virgin Red",          # NOT Virgin Atlantic — must stay unmatched
+        "Virgin Red",  # NOT Virgin Atlantic — must stay unmatched
     ],
 )
 def test_match_airline_untracked_returns_none(program):
@@ -76,6 +76,7 @@ def test_match_airline_ana_does_not_grab_avianca():
     assert _match_airline("Avianca LifeMiles") == ("AV", "LifeMiles")
     assert _match_airline("Avianca") == ("AV", "LifeMiles")
 
+
 # ---------------------------------------------------------------------------
 # _parse_ratio — site writes "bank : partner"; internal ratio = bank / partner
 # ---------------------------------------------------------------------------
@@ -85,10 +86,10 @@ def test_match_airline_ana_does_not_grab_avianca():
     "raw,expected",
     [
         ("1:1", 1.0),
-        ("2:1.5", 1.33),       # Capital One → Emirates-style
-        ("5:4", 1.25),         # Amex → Cathay-style
-        ("1,000:800", 1.25),   # thousands separators
-        ("1:1.6", 0.63),       # Amex → AeroMexico-style (bank cheaper than partner)
+        ("2:1.5", 1.33),  # Capital One → Emirates-style
+        ("5:4", 1.25),  # Amex → Cathay-style
+        ("1,000:800", 1.25),  # thousands separators
+        ("1:1.6", 0.63),  # Amex → AeroMexico-style (bank cheaper than partner)
     ],
 )
 def test_parse_ratio_valid(raw, expected):
@@ -237,21 +238,29 @@ def mem_conn():
         )
     """)
     # Stale data the snapshot must fully replace — incl. a Marriott (id 6) row.
-    conn.execute(
-        "INSERT INTO transfer_partners VALUES (6, 'AS', 'Mileage Plan', 3.0, 3000, 3000)"
-    )
-    conn.execute(
-        "INSERT INTO transfer_partners VALUES (1, 'UA', 'MileagePlus', 1.0, 1000, 1000)"
-    )
+    conn.execute("INSERT INTO transfer_partners VALUES (6, 'AS', 'Mileage Plan', 3.0, 3000, 3000)")
+    conn.execute("INSERT INTO transfer_partners VALUES (1, 'UA', 'MileagePlus', 1.0, 1000, 1000)")
     return conn
 
 
 def _sample_records():
     return [
-        {"bank_program_id": 1, "airline_code": "SQ", "program_name": "KrisFlyer",
-         "transfer_ratio": 1.0, "min_transfer": 1000, "transfer_increment": 1000},
-        {"bank_program_id": 2, "airline_code": "CX", "program_name": "Asia Miles",
-         "transfer_ratio": 1.25, "min_transfer": 1000, "transfer_increment": 1000},
+        {
+            "bank_program_id": 1,
+            "airline_code": "SQ",
+            "program_name": "KrisFlyer",
+            "transfer_ratio": 1.0,
+            "min_transfer": 1000,
+            "transfer_increment": 1000,
+        },
+        {
+            "bank_program_id": 2,
+            "airline_code": "CX",
+            "program_name": "Asia Miles",
+            "transfer_ratio": 1.25,
+            "min_transfer": 1000,
+            "transfer_increment": 1000,
+        },
     ]
 
 

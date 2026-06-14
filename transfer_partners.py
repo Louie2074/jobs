@@ -109,6 +109,7 @@ def _match_airline(program_raw: str) -> tuple[str, str] | None:
             return code, name
     return None
 
+
 MIN_TRANSFER = 1000
 TRANSFER_INCREMENT = 1000
 
@@ -161,8 +162,10 @@ def _find_bank_table(soup: BeautifulSoup, marker: str):
         for el in heading.find_all_next():
             if el.name == "table":
                 return el
-            if el.name and _HEADING_RE.fullmatch(el.name) and (
-                "transfer partners" in el.get_text(strip=True).lower()
+            if (
+                el.name
+                and _HEADING_RE.fullmatch(el.name)
+                and ("transfer partners" in el.get_text(strip=True).lower())
             ):
                 return None  # next section reached before any table → this one has none
         return None
@@ -223,7 +226,9 @@ def parse_partners(html: str) -> tuple[list[dict], dict]:
                 ratio_dropped += 1
                 logger.warning(
                     "bank=%s program=%r: unparseable ratio %r — dropped",
-                    marker, program_raw, ratio_raw,
+                    marker,
+                    program_raw,
+                    ratio_raw,
                 )
                 continue
 
@@ -242,8 +247,14 @@ def parse_partners(html: str) -> tuple[list[dict], dict]:
         logger.info(
             "bank=%s id=%d table_found=True rows_total=%d airline_rows=%d "
             "mapped=%d skipped_hotel=%d skipped_unmapped=%d ratio_dropped=%d",
-            marker, bank_id, rows_total, airline_rows, mapped,
-            skipped_hotel, skipped_unmapped, ratio_dropped,
+            marker,
+            bank_id,
+            rows_total,
+            airline_rows,
+            mapped,
+            skipped_hotel,
+            skipped_unmapped,
+            ratio_dropped,
         )
         if unmapped_names:
             logger.info("bank=%s unmapped airline programs: %s", marker, unmapped_names)
@@ -279,9 +290,7 @@ def reconcile(
     """
     if dry_run:
         count = conn.execute("SELECT COUNT(*) FROM transfer_partners").fetchone()[0]
-        logger.info(
-            "[dry-run] Would delete %d row(s) and insert %d row(s).", count, len(records)
-        )
+        logger.info("[dry-run] Would delete %d row(s) and insert %d row(s).", count, len(records))
         return 0, 0
 
     deleted = conn.execute("DELETE FROM transfer_partners").fetchone()[0]
@@ -473,7 +482,9 @@ def main() -> int:
         records, stats = parse_partners(html)
         logger.info(
             "Parsed %d transfer-partner row(s) across %d bank(s) (banks_missing=%d).",
-            len(records), stats["banks_found"], stats["banks_missing"],
+            len(records),
+            stats["banks_found"],
+            stats["banks_missing"],
         )
 
         conn = connect()
