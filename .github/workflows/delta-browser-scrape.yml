@@ -33,7 +33,15 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 150   # 26 routes × both dirs run ~60+ min; ceiling (not runtime) with headroom for the post-loop metric + heartbeat
+    timeout-minutes: 150   # ceiling (not runtime), headroom for the post-loop metric + heartbeat
+    # Parallel runs on separate runner IPs split DELTA_ROUTES (stride-sharded), so each run stays
+    # comfortably under Delta's per-session Akamai (444) ceiling (~27 directed legs — the live run
+    # blocked on leg 28). 3 shards = ~9 pairs / ~18 legs each. On-demand single-route dispatch
+    # still spawns all shards, but only shard 0 does the work.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -50,6 +58,8 @@ jobs:
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           DELTA_HEARTBEAT_URL: ${{ secrets.DELTA_HEARTBEAT_URL }}
           DELTA_SCRAPE_DAYS: "5"
+          DELTA_SHARDS: "3"
+          DELTA_SHARD_INDEX: ${{ matrix.shard }}
           DELTA_ROUTE_ORIGIN: ${{ inputs.origin }}
           DELTA_ROUTE_DEST: ${{ inputs.destination }}
           DELTA_ROUTE_DATES: ${{ inputs.dates }}

@@ -75,6 +75,13 @@ ROUTE_ORIGIN = os.getenv("DELTA_ROUTE_ORIGIN", "").strip()
 ROUTE_DEST = os.getenv("DELTA_ROUTE_DEST", "").strip()
 ROUTE_DATES = os.getenv("DELTA_ROUTE_DATES", "").strip()
 
+# Cron sharding: split DELTA_ROUTES across N parallel runs (the GH Actions matrix sets these),
+# each on its own runner IP, so a single run stays under Delta's per-session Akamai (444)
+# ceiling (~13 pairs / ~27 directed legs before the WAF blocks mid-run). Defaults to a single
+# unsharded run. Single-route on-demand mode ignores sharding (only shard 0 does the work).
+SHARDS = max(1, int(os.getenv("DELTA_SHARDS", "1")))
+SHARD_INDEX = int(os.getenv("DELTA_SHARD_INDEX", "0"))
+
 
 def _parse_dates_csv(csv: str) -> list[date]:
     """Parse a comma-separated list of ISO YYYY-MM-DD dates, dropping blanks/invalid ones."""
@@ -96,15 +103,23 @@ def _build_plan(
     route_dates_csv: str,
     scrape_days: int,
     today: date,
+    shard_index: int = 0,
+    shards: int = 1,
 ) -> tuple[list[tuple[str, str]], list[date]]:
     """Return (pairs, dates) for this run.
 
     Single-route mode (origin AND dest provided): just that route in the requested
-    direction, over the supplied dates (or the near-term window if none given).
-    Cron mode (no route): every popular route in both directions over the window.
+    direction, over the supplied dates (or the near-term window if none given). Sharding
+    does not apply — only shard 0 returns the route; other shards return no work so a matrix
+    dispatch never scrapes the same on-demand route twice.
+    Cron mode (no route): every popular route in both directions over the window, restricted
+    to this shard's stride ``DELTA_ROUTES[shard_index::shards]`` so N parallel runs split the
+    list across separate runner IPs (keeping each run under Delta's per-session Akamai ceiling).
     A partial route (only one of origin/dest) is treated as cron mode.
     """
     if route_origin and route_dest:
+        if shard_index != 0:
+            return [], []
         pairs = [(route_origin.upper(), route_dest.upper())]
         dates = _parse_dates_csv(route_dates_csv)
         if not dates:
@@ -119,7 +134,7 @@ def _build_plan(
         )
 
     pairs = []
-    for origin, dest in DELTA_ROUTES:
+    for origin, dest in DELTA_ROUTES[shard_index::shards]:
         pairs.append((origin, dest))
         pairs.append((dest, origin))
     dates = [today + timedelta(days=i) for i in range(scrape_days)]
@@ -178,13 +193,21 @@ def main() -> None:
     migrate()  # idempotent; ensures the flights table exists
     logger.info("Schema ready")
 
-    pairs, dates = _build_plan(ROUTE_ORIGIN, ROUTE_DEST, ROUTE_DATES, SCRAPE_DAYS, date.today())
+    pairs, dates = _build_plan(
+        ROUTE_ORIGIN, ROUTE_DEST, ROUTE_DATES, SCRAPE_DAYS, date.today(), SHARD_INDEX, SHARDS
+    )
     if ROUTE_ORIGIN and ROUTE_DEST:
         logger.info(
             "On-demand single-route mode: %s→%s × %d dates", ROUTE_ORIGIN, ROUTE_DEST, len(dates)
         )
     else:
-        logger.info("Cron mode: %d routes × %d dates", len(pairs), len(dates))
+        logger.info(
+            "Cron mode (shard %d/%d): %d routes × %d dates",
+            SHARD_INDEX,
+            SHARDS,
+            len(pairs),
+            len(dates),
+        )
 
     scraper = DeltaScraper()
     started = time.monotonic()
