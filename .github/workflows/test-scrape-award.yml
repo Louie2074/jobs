@@ -1,0 +1,37 @@
+name: test-scrape-award
+
+# Throwaway validation (workflow_dispatch only): drives each candidate airline's award search in
+# headful Chrome under xvfb on the Azure IP and records the full fetch()/XHR flow, to validate
+# end-to-end award-data extraction + settle session-vs-stateless. Writes nothing to the DB.
+# Uploads per-airline network captures (cap_*.json) + screenshots (scrape_*.png) as artifacts.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Install deps
+        run: pip install nodriver==0.50.3
+      - name: Test-scrape award flows (headful Chrome under xvfb, Azure IP)
+        run: xvfb-run -a python test_scrape_award.py
+      - name: Upload captures + screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: award-scrape-captures
+          path: |
+            cap_*.json
+            scrape_*.png
+          if-no-files-found: ignore
