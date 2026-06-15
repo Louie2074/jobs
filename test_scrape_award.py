@@ -38,16 +38,24 @@ FUTURE_DAY = "20"   # day-of-month to click in calendars (run date ~ mid-June 20
 
 
 # ------------------------------------------------------------------ interaction helpers
+# never let a fuzzy click land on these (caused Cathay->sign-in, Etihad->/help misfires)
+BLOCK = ["sign in", "sign-in", "log in", "login", "register", "join ", "join now", "help",
+         "my account", "contact us", "manage my", "manage booking", "logout", "sign up", "sign out"]
+
+
 async def click_exact(tab, *texts, allow_nav=False):
     """Click the most specific *clickable* element whose trimmed text/value/aria equals (then
-    contains) one of `texts`. Skips elements inside <nav>/<header> megamenus unless allow_nav."""
+    contains) one of `texts`. Skips <nav>/<header> (unless allow_nav) and any element whose text
+    hits the BLOCK list (sign-in/help/etc.) — unless that term was explicitly requested."""
+    block = [b for b in BLOCK if not any(b in t.lower() for t in texts)]
     js = (
         "(()=>{const ts=" + json.dumps([t.lower() for t in texts]) + ";"
+        "const block=" + json.dumps(block) + ";"
         "const sel='button,a,[role=button],[role=tab],[role=option],[role=radio],label,li,input[type=radio],input[type=checkbox],input[type=submit]';"
+        "const txt=e=>((e.textContent||'')+' '+(e.value||'')+' '+(e.getAttribute&&(e.getAttribute('aria-label')||'')||'')).toLowerCase().replace(/\\s+/g,' ').trim();"
         "const els=[...document.querySelectorAll(sel)].filter(e=>{if(!e.offsetParent)return false;"
         + ("" if allow_nav else "if(e.closest('nav,header,[role=navigation]'))return false;") +
-        "return true;});"
-        "const txt=e=>((e.textContent||'')+' '+(e.value||'')+' '+(e.getAttribute&&(e.getAttribute('aria-label')||'')||'')).toLowerCase().replace(/\\s+/g,' ').trim();"
+        "const t=txt(e);if(block.some(b=>t.includes(b)))return false;return true;});"
         "for(const t of ts){const e=els.find(x=>txt(x)===t);if(e){e.scrollIntoView({block:'center'});e.click();return 'exact:'+txt(e).slice(0,40);}}"
         "for(const t of ts){const m=els.filter(x=>txt(x).includes(t)&&txt(x).length<70).sort((a,b)=>txt(a).length-txt(b).length);"
         "if(m[0]){m[0].scrollIntoView({block:'center'});m[0].click();return 'contains:'+txt(m[0]).slice(0,40);}}return null;})()"
@@ -64,9 +72,9 @@ async def accept_cookies(tab):
     for _ in range(4):
         r = await click_exact(
             tab, "i accept only necessary cookies", "accept only necessary cookies",
-            "only necessary cookies", "reject all", "reject all cookies", "necessary cookies only",
-            "i accept", "accept all cookies", "accept all", "accept", "agree", "ok", "got it",
-            "confirm my choices", allow_nav=True,
+            "only necessary cookies", "reject all cookies", "reject all", "necessary cookies only",
+            "accept all cookies", "accept all", "confirm my choices", "allow all cookies",
+            allow_nav=True,
         )
         if r:
             await tab.sleep(1.5)
@@ -137,7 +145,9 @@ def classify(cap):
                "shoppingsession", "correlationid", "offercacheid", "shoppingcart", "/booking/init")
     skip = ("google", "doubleclick", "adsrvr", "facebook", "tiktok", "optimizely", "tealium",
             "qualtric", "onetrust", "px-cloud", "useinsider", "pisano", "demdex", "branch.io",
-            "quantummetric", "kampyle", "sojern", "bing", "pinterest", "applicationinsights")
+            "quantummetric", "kampyle", "sojern", "bing", "pinterest", "applicationinsights",
+            "datadog", "linkedin", "/login", "/logout", "/ms/login", "cms/", "/parameters",
+            "/notifications", "/metadatas", "/headers", "/messages")
     for r in cap:
         u = (r.get("u") or "").lower()
         b = (r.get("b") or "").lower()
