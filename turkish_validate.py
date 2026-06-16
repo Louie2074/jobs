@@ -37,7 +37,7 @@ logging.basicConfig(
 P("importing TurkishScraper")
 from scrapers.turkish import TurkishScraper  # noqa: E402
 
-ROUTES = [("SEA", "IST"), ("JFK", "IST")]
+ROUTES = [("SEA", "IST")]
 
 
 def main():
