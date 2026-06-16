@@ -366,6 +366,29 @@ async def drive_virgin(tab):
     await _vs_state(tab, "after-from")
     await _fill_vs_airport(tab, "flying to", DEST_CITY, DEST_CODE)
     await _vs_state(tab, "after-to")
+    # dump the search form's HTML so we can design the date interaction + verify the airports are
+    # committed to hidden state (the visible inputs blank after selection).
+    try:
+        form = await tab.evaluate(
+            "(()=>{const fs=[...document.querySelectorAll('form,[class*=search],[class*=Search],[class*=flightSearch],[data-test*=search]')];"
+            "let best=null,bn=0;for(const f of fs){const n=f.querySelectorAll('input,button,[role=button]').length;"
+            "if(n>bn&&n<200){bn=n;best=f;}}return best?best.outerHTML:'no-form';})()"
+        )
+        if isinstance(form, str) and form != 'no-form':
+            with open('cap_virgin_widget.html', 'w') as fh:
+                fh.write(form[:600000])
+            print(f"FORM_HTML saved ({len(form)} chars)", flush=True)
+        else:
+            print("FORM_HTML: no-form", flush=True)
+        # specifically: the When/date trigger + any hidden airport state
+        whenstruct = await tab.evaluate(
+            "(()=>{const w=[...document.querySelectorAll('*')].find(e=>e.offsetParent&&/^\\s*When\\s*$/.test(e.textContent||'')&&e.querySelectorAll('*').length<6);"
+            "const hid=[...document.querySelectorAll('input[type=hidden]')].map(e=>(e.name||e.id||'')+'='+(e.value||'').slice(0,12)).filter(s=>/orig|dest|from|to|airport|date/i.test(s)).slice(0,8);"
+            "return JSON.stringify({when:w?(w.tagName+'.'+w.className+' :: '+(w.outerHTML||'').slice(0,300)):'no-when-el',hidden:hid});})()"
+        )
+        print(f"[WHEN STRUCT] {str(whenstruct)[:600]}", flush=True)
+    except Exception as e:
+        print(f"FORM_DUMP_ERR {str(e)[:80]}", flush=True)
     # date: REAL-click the "When" field/button to open the date picker (synthetic focus didn't),
     # dump the calendar, and ONLY click a day if a calendar actually opened.
     await _real_click(tab,

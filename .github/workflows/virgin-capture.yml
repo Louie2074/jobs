@@ -29,5 +29,6 @@ jobs:
             cap_virgin_net.json
             cap_virgin_results.html
             cap_virgin_widget.html
+            cap_virgin_widget.html
             virgin_*.png
           if-no-files-found: ignore
