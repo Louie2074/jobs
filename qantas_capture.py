@@ -327,57 +327,34 @@ async def drive_qantas(tab):
             print("WIDGET_HTML: no-form-found", flush=True)
     except Exception as e:
         print(f"WIDGET_DUMP_ERR {str(e)[:80]}", flush=True)
-    # Qantas defaults to cash — switch to Classic Reward / Use Points, then one-way, fill From+To.
-    rw = await tab.evaluate(
-        "(()=>{const l=[...document.querySelectorAll('label,button,[role=switch],[role=checkbox],[role=tab],a,span')]"
-        ".find(e=>e.offsetParent&&/use points|classic reward|reward|pay with points|points|redeem/i.test(e.textContent||''));"
-        "if(l){l.scrollIntoView({block:'center'});l.click();return 'reward:'+(l.textContent||'').replace(/\\s+/g,' ').trim().slice(0,30);}return 'no-reward-toggle';})()"
+    # STRUCTURE-DUMP ONLY (no driving — a stray generic click navigated to /holidays/deals). Dump
+    # the booking-widget HTML + a labeled inventory of toggles/fields/buttons to design the driver.
+    try:
+        wh = await tab.evaluate(
+            "(()=>{const cand=[...document.querySelectorAll('form,[class*=search],[class*=Search],[class*=book],[data-test*=search],[id*=search],[class*=widget]')];"
+            "let best=null,bn=0;for(const f of cand){const n=f.querySelectorAll('input,button,[role=button]').length;"
+            "if(n>bn&&n<120){bn=n;best=f;}}return best?best.outerHTML:'no-form';})()"
+        )
+        if isinstance(wh, str) and wh != 'no-form':
+            with open('cap_qantas_widget.html', 'w') as fh:
+                fh.write(wh[:600000])
+            print(f"WIDGET_HTML saved ({len(wh)} chars)", flush=True)
+        else:
+            print("WIDGET_HTML: no-form", flush=True)
+    except Exception as e:
+        print(f"WIDGET_DUMP_ERR {str(e)[:80]}", flush=True)
+    inv = await tab.evaluate(
+        "(()=>{const vis=e=>e.offsetParent;"
+        "const toggles=[...document.querySelectorAll('label,[role=switch],[role=checkbox],[role=radio],[role=tab],button')]"
+        ".filter(e=>vis(e)&&/point|reward|cash|class|use|pay with/i.test((e.textContent||'')+(e.getAttribute('aria-label')||'')))"
+        ".map(e=>(((e.textContent||'')+'|'+(e.getAttribute('aria-label')||'')).replace(/\\s+/g,' ').trim()).slice(0,40));"
+        "const fields=[...document.querySelectorAll('input,[role=combobox]')].filter(vis)"
+        ".map(e=>(((e.getAttribute('aria-label')||'')+'#'+(e.id||'')+'#'+(e.placeholder||'')).slice(0,55)));"
+        "const btns=[...document.querySelectorAll('button,input[type=submit],[role=button]')].filter(e=>vis(e)&&/search|find|date|depart|continue/i.test((e.textContent||'')+(e.getAttribute('aria-label')||'')))"
+        ".map(e=>(((e.textContent||'')+'|'+(e.getAttribute('aria-label')||'')+'#'+(e.id||'')).replace(/\\s+/g,' ').trim()).slice(0,45));"
+        "return JSON.stringify({toggles:[...new Set(toggles)].slice(0,12),fields:[...new Set(fields)].slice(0,16),btns:[...new Set(btns)].slice(0,12)});})()"
     )
-    print(f"[REWARD] {rw}", flush=True)
-    await tab.sleep(2)
-    await click_exact(tab, "one way", "one-way")
-    await tab.sleep(1)
-    await _qf_state(tab, "after-oneway")
-    await fill_airport(tab, ["origin", "from", "leaving from", "where from", "select origin"],
-                       ORIGIN_CITY, ORIGIN_CODE)
-    await fill_airport(tab, ["destination", "to", "going to", "flying to", "where to", "select destination"],
-                       DEST_CITY, DEST_CODE)
-    await _qf_state(tab, "after-airports")
-    # date: open the Departure field with a REAL CDP click (synthetic clicks often don't open the
-    # picker), dump the calendar, then real-click a future day cell.
-    await _real_click(tab,
-        "[...document.querySelectorAll('input,[role=button],[role=combobox],button,div')]"
-        ".find(e=>e.offsetParent&&/departure|depart|select date|when|outbound/i.test"
-        "((e.getAttribute('aria-label')||'')+(e.placeholder||'')+(e.textContent||'').slice(0,30)))",
-        "departure-field")
-    await tab.sleep(2)
-    cal = await tab.evaluate(
-        "(()=>{const c=[...document.querySelectorAll('[class*=calendar],[class*=datepicker],[role=grid],[class*=month]')].find(e=>e.offsetParent);"
-        "return c?c.outerHTML.slice(0,500):'no-calendar';})()"
-    )
-    print(f"[CALENDAR] {str(cal)[:500]}", flush=True)
-    await _real_click(tab,
-        "(()=>{const cells=[...document.querySelectorAll('td,[role=gridcell],[class*=day],button,span,div')]"
-        ".filter(e=>e.offsetParent&&/^\\s*\\d{1,2}\\s*$/.test(e.textContent||'')"
-        "&&!/disabled|past|--disabled/i.test((e.className||'')+(e.getAttribute('aria-disabled')||''))"
-        "&&e.getAttribute('aria-disabled')!=='true');"
-        "return cells.find(e=>e.textContent.trim()==='" + FUTURE_DAY + "')||cells.find(e=>+e.textContent.trim()>=22)||cells[cells.length-1];})()",
-        "day-cell", is_fn=True)
-    await tab.sleep(1)
-    await click_exact(tab, "confirm", "ok", "done", "apply", "select", "accept")
-    await _qf_state(tab, "after-date")
-    # search (the LifeMiles CTA is "Smart Search")
-    await _real_click(tab,
-        "[...document.querySelectorAll('button,[role=button],input[type=submit]')]"
-        ".find(e=>e.offsetParent&&/smart search|search flights|^\\s*search/i.test"
-        "((e.textContent||'')+(e.getAttribute('aria-label')||'')+(e.value||'')))",
-        "search-btn")
-    await tab.sleep(26)  # availability render / API
-    # detect login-gating vs results
-    where = await tab.evaluate(
-        "JSON.stringify({url:location.href.slice(0,80),sso:/sso\\.lifemiles|openid-connect|\\/auth\\/|login/i.test(location.href)})"
-    )
-    print(f"[AFTER SEARCH] {where}", flush=True)
+    print(f"[QF INVENTORY] {str(inv)[:1100]}", flush=True)
     await diag(tab, "03results")
 
 # --------------------------------------------------------------- post-processing

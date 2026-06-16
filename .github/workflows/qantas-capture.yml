@@ -29,5 +29,6 @@ jobs:
             cap_qantas_net.json
             cap_qantas_results.html
             cap_qantas_widget.html
+            cap_qantas_widget.html
             qantas_*.png
           if-no-files-found: ignore
