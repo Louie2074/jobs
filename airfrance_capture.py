@@ -256,7 +256,24 @@ async def drive_airfrance(tab):
         "if(b){b.click();return 'closed';}return 'none';})()"
     )
     await _kill_overlays(tab)
-    await tab.sleep(10)  # the booking widget renders lazily after consent
+    # poll up to ~40s for the booking widget to render (slow-render vs withheld decides tractability)
+    for w in range(8):
+        await tab.sleep(5)
+        cnt = await tab.evaluate(
+            "(()=>{const ins=document.querySelectorAll('input').length;"
+            "const all=document.querySelectorAll('*').length;"
+            "const widget=document.querySelectorAll('[class*=bw0],[class*=booking],[class*=flight-search],"
+            "[class*=search-engine],[data-test*=search],[class*=bookingFlightSearch]').length;"
+            "const b=document.body?document.body.innerText.length:0;"
+            "return JSON.stringify({sec:0,inputs:ins,allEls:all,widgetEls:widget,bodyLen:b});})()"
+        )
+        print(f"[AF WAIT {(w+1)*5}s] {cnt}", flush=True)
+        try:
+            import json as _j
+            if _j.loads(cnt).get("inputs", 0) >= 2:
+                break
+        except Exception:
+            pass
     await diag(tab, "00warm")
     # rich probe: is the widget present? body text, iframes, miles/booking elements
     probe = await tab.evaluate(
