@@ -28,6 +28,7 @@ AIRPORT_TZ: dict[str, str] = {
     "HOU": "America/Chicago",
     "IAD": "America/New_York",
     "IAH": "America/Chicago",
+    "IST": "Europe/Istanbul",  # Istanbul — Turkish Miles&Smiles hub (return-leg departure times)
     "JFK": "America/New_York",
     "KOA": "Pacific/Honolulu",
     "LAS": "America/Los_Angeles",
