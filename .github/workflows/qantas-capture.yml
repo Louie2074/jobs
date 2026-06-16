@@ -1,0 +1,33 @@
+name: qantas-capture
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Capture Qantas award flow (headful Chrome under xvfb, Azure IP)
+        run: xvfb-run -a python -u qantas_capture.py
+      - name: Upload capture + screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qantas-capture
+          path: |
+            cap_qantas_full.json
+            cap_qantas_net.json
+            cap_qantas_results.html
+            cap_qantas_widget.html
+            qantas_*.png
+          if-no-files-found: ignore
