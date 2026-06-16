@@ -121,8 +121,9 @@ async def type_focused(tab, text):
         return None
 
 
-async def fill_airport(tab, label, city, code):
-    await click_field(tab, label)
+async def fill_airport(tab, labels, city, code):
+    """labels: list of candidate field labels to focus, then type `city` + pick option `code`."""
+    await click_field(tab, *labels)
     await tab.sleep(1)
     await type_focused(tab, city)
     await tab.sleep(2.5)
@@ -130,20 +131,57 @@ async def fill_airport(tab, label, city, code):
     await tab.sleep(1)
 
 
+async def diag(tab, stage):
+    """Log-readable snapshot of where the drive is: url, title, visible buttons/fields."""
+    js = (
+        "(()=>{const vis=e=>e.offsetParent;"
+        "const btn=[...document.querySelectorAll('button,a[role=button],[role=tab],input[type=submit]')]"
+        ".filter(vis).map(e=>((e.textContent||'')+' '+(e.value||'')+' '+(e.getAttribute('aria-label')||''))"
+        ".replace(/\\s+/g,' ').trim()).filter(Boolean).slice(0,30);"
+        "const fld=[...document.querySelectorAll('input,[role=combobox]')].filter(vis)"
+        ".map(e=>((e.placeholder||'')+'|'+(e.getAttribute('aria-label')||'')).slice(0,40)).filter(s=>s!=='|').slice(0,15);"
+        "return JSON.stringify({href:location.href.slice(0,110),title:document.title.slice(0,50),"
+        "bodyLen:(document.body?document.body.innerText.length:0),buttons:btn,fields:fld});})()"
+    )
+    try:
+        r = await tab.evaluate(js)
+        print(f"[DIAG {stage}] {r}", flush=True)
+    except Exception as e:
+        print(f"[DIAG {stage}] eval_err {type(e).__name__}: {str(e)[:80]}", flush=True)
+    try:
+        await tab.save_screenshot(f"etihad_{stage}.png")
+    except Exception:
+        pass
+
+
 async def drive_etihad(tab):
-    """Best-effort drive of the JFK->AUH one-way award search."""
+    """Best-effort drive of the JFK->AUH one-way award search. Handles both the desktop
+    single-panel form and the step-wizard layout; heavily instrumented so a failed drive still
+    reveals the form shape for the next iteration."""
     await accept_cookies(tab)
+    await diag(tab, "00warm")
     await click_exact(tab, "one way")
     await tab.sleep(1)
-    await fill_airport(tab, "flying from", "from", ORIGIN_CITY, ORIGIN_CODE)
-    await fill_airport(tab, "flying to", "to", DEST_CITY, DEST_CODE)
-    await click_field(tab, "dates", "departure", "depart", "select date", "when")
+    await fill_airport(tab, ["flying from", "from", "origin", "leaving from", "where from"],
+                       ORIGIN_CITY, ORIGIN_CODE)
+    await fill_airport(tab, ["flying to", "to", "destination", "going to", "where to"],
+                       DEST_CITY, DEST_CODE)
+    await diag(tab, "01airports")
+    # wizard layouts gate the date step behind a continue
+    await click_exact(tab, "continue", "next")
+    await tab.sleep(1.5)
+    await click_field(tab, "dates", "departure", "depart", "select date", "when", "travel date")
     await tab.sleep(1)
     await click_exact(tab, FUTURE_DAY, allow_nav=True)
     await tab.sleep(1)
     await click_exact(tab, "confirm", "done", "ok", "apply")
-    await click_exact(tab, "search", "search flights", "continue", "find flights", "let's go")
-    await tab.sleep(20)  # availability is slow (session/cart + Amadeus pricing)
+    await diag(tab, "02date")
+    await click_exact(tab, "search", "search flights", "find flights", "show flights",
+                      "continue", "let's go")
+    await tab.sleep(8)
+    await click_exact(tab, "search", "search flights", "find flights", "continue")  # 2nd nudge
+    await tab.sleep(22)  # availability is slow (session/cart + Amadeus pricing)
+    await diag(tab, "03results")
 
 
 # --------------------------------------------------------------- post-processing
@@ -258,7 +296,8 @@ async def main():
              "--homepage=about:blank", "--no-pings", "--password-store=basic",
              "--disable-breakpad", "--disable-dev-shm-usage", "--disable-infobars",
              "--disable-session-crashed-bubble", "--disable-search-engine-choice-screen",
-             "--disable-features=IsolateOrigins,site-per-process", "--no-sandbox"]
+             "--disable-features=IsolateOrigins,site-per-process", "--no-sandbox",
+             "--window-size=1440,900", "--start-maximized"]
     proc = subprocess.Popen([find_chrome_executable(), *flags],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
     deadline = time.monotonic() + 90
