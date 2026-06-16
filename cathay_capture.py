@@ -198,25 +198,28 @@ async def _redibe_state(tab, stage):
         print(f"[REDIBE {stage}] err {str(e)[:80]}", flush=True)
 
 
+async def _kill_overlays(tab):
+    """Remove the auto-opening Notification centre overlay + backdrops that intercept clicks."""
+    try:
+        r = await tab.evaluate(
+            "(()=>{let n=0;document.querySelectorAll('[class*=notificationCenter__overlay],"
+            "[class*=notificationCenter__backdrop],[class*=Backdrop],[class*=backdrop]')"
+            ".forEach(e=>{e.remove();n++;});return 'killed:'+n;})()"
+        )
+        print(f"[NOTIF] {r}", flush=True)
+    except Exception as e:
+        print(f"[NOTIF] err {str(e)[:60]}", flush=True)
+
+
 async def drive_cathay(tab):
     """Drive the redibe-v3 redemption widget: one-way, From=JFK, Going to=HKG, pick a date,
     Search → submits to flights.cathaypacific.com. Heavily instrumented (redibe input values +
     candidate search buttons dumped at each stage) so a failed drive reveals the form shape."""
     await accept_cookies(tab)
-    # the "Notification centre" overlay auto-opens and covers the form, intercepting date/search
-    # clicks — close it (and press Escape) before driving.
-    for _ in range(3):
-        closed = await tab.evaluate(
-            "(()=>{const c=document.querySelector('.notificationCenter__headerClose,"
-            "[class*=notificationCenter] [aria-label=Close],[class*=notificationCenter__overlay] [role=button]');"
-            "if(c){c.click();return 'closed-notif';}"
-            "const o=document.querySelector('[class*=notificationCenter__overlay]');"
-            "return o?'overlay-open-no-close-btn':'no-notif';})()"
-        )
-        print(f"[NOTIF] {closed}", flush=True)
-        if closed == "no-notif":
-            break
-        await tab.sleep(1)
+    # the "Notification centre" overlay auto-opens, covers the form, and REOPENS when its close
+    # button is clicked — so just rip the overlay (+ any backdrop) out of the DOM so it can't
+    # intercept the date/search clicks underneath. Re-run before each interaction stage.
+    await _kill_overlays(tab)
     await diag(tab, "00warm")
     # dump the redibe widget container HTML for offline date/search-button design
     try:
@@ -254,6 +257,7 @@ async def drive_cathay(tab):
         await fill_airport(tab, ["from", "leaving from"], ORIGIN_CITY, ORIGIN_CODE)
         await fill_airport(tab, ["going to", "to"], DEST_CITY, DEST_CODE)
     await _redibe_state(tab, "01airports")
+    await _kill_overlays(tab)  # the overlay re-spawns — clear it again before the date click
     # date: the departure date is a <span role=combobox> with a calendar icon. A synthetic JS
     # .click() doesn't open the redibe picker — it binds to a real pointer event — so tag the
     # combobox, select it, and issue a REAL nodriver CDP click.
