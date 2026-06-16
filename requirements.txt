@@ -4,6 +4,10 @@ duckdb==1.5.2
 # Pinned (not floating) — browser.py is dual-copied from the scraper repo; both
 # must run the SAME nodriver. Keep in sync with scraper/pyproject.toml.
 nodriver==0.50.3
+# nodriver 0.50.3 requires websockets>=14, but websockets 16.0 changed its asyncio recv so
+# nodriver's background listener double-recvs and crashes mid-scrape ("cannot call get()
+# concurrently"). Cap to the 14.x line nodriver was built against. (proven 2026-06-16)
+websockets>=14,<15
 beautifulsoup4>=4.12,<5
 pytest>=8,<9
 httpx[http2]>=0.27.0

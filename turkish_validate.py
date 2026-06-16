@@ -37,7 +37,7 @@ logging.basicConfig(
 P("importing TurkishScraper")
 from scrapers.turkish import TurkishScraper  # noqa: E402
 
-ROUTES = [("SEA", "IST")]
+ROUTES = [("SEA", "IST"), ("JFK", "IST")]
 
 
 def main():
@@ -66,8 +66,13 @@ def main():
     P(f"TOTAL records: {total}")
     if total == 0:
         P("VALIDATION FAILED — 0 records")
-        sys.exit(1)
+        sys.stdout.flush()
+        os._exit(1)
     P("VALIDATION OK")
+    sys.stdout.flush()
+    # nodriver leaves keepalive tasks/threads on its loop that block a clean interpreter exit
+    # (the run otherwise hangs on teardown); force the process down now that we have the result.
+    os._exit(0)
 
 
 if __name__ == "__main__":

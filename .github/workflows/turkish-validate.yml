@@ -22,8 +22,8 @@ jobs:
       - name: Install xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Install deps
-        run: pip install -r requirements.txt && pip install "websockets==14.2"
+        run: pip install -r requirements.txt
       - name: Validate Turkish scraper (headful Chrome under xvfb, Azure IP)
         env:
           MOTHERDUCK_TOKEN: dummy   # import-time settings gate only; this script never hits the DB
-        run: xvfb-run -a timeout -s KILL 280 python -u turkish_validate.py || echo "RUN_ENDED exit=$?"
+        run: xvfb-run -a timeout -s KILL 300 python -u turkish_validate.py
