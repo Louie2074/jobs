@@ -416,12 +416,18 @@ async def drive_tap(tab):
         ".find(e=>e.offsetParent&&/select dates|open calendar|departure|choose date/i.test"
         "((e.textContent||'')+(e.getAttribute('aria-label')||'')))",
         "select-dates")
-    await tab.sleep(2.2)
+    await tab.sleep(2.5)
+    # broad: what (if anything) newly appeared? dump the biggest visible popover/overlay + any
+    # element whose aria-label looks like a date, regardless of class.
     cal = await tab.evaluate(
-        "(()=>{const c=[...document.querySelectorAll('[role=dialog],[class*=calendar],[class*=Calendar],[role=grid],[class*=datepicker],[class*=DayPicker]')].find(e=>e.offsetParent);"
-        "return c?(c.className+' :: '+c.outerHTML.slice(0,400)):'no-calendar';})()"
+        "(()=>{const pops=[...document.querySelectorAll('[role=dialog],[data-state=open],[class*=popover],[class*=Popover],[class*=calendar],[class*=Calendar],[role=grid],[role=application],[class*=month],[class*=Month]')]"
+        ".filter(e=>e.offsetParent);"
+        "const dayish=[...document.querySelectorAll('[aria-label],button,td,[role=gridcell]')]"
+        ".filter(e=>e.offsetParent&&/\\b(202[67]|July|Jul|June|Jun)\\b/i.test(e.getAttribute('aria-label')||'')).slice(0,4)"
+        ".map(e=>(e.getAttribute('aria-label')||'').slice(0,40));"
+        "return JSON.stringify({popovers:pops.length,popClasses:pops.slice(0,3).map(e=>(e.className||e.getAttribute('role')||'').slice(0,40)),sampleDays:dayish});})()"
     )
-    print(f"[CALENDAR] {str(cal)[:520]}", flush=True)
+    print(f"[CALENDAR] {str(cal)[:600]}", flush=True)
     await _real_click(tab,
         "[...document.querySelectorAll('button[aria-label],[role=gridcell],td,button')]"
         ".find(e=>e.offsetParent&&!e.disabled&&e.getAttribute('aria-disabled')!=='true'"
