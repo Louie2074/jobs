@@ -338,8 +338,9 @@ async def drive_tap(tab):
         print(f"WIDGET_DUMP_ERR {str(e)[:80]}", flush=True)
     # TAP defaults to cash — switch to Use Miles / Miles&Go, then one-way, fill From+To.
     rw = await tab.evaluate(
-        "(()=>{const l=[...document.querySelectorAll('label,button,[role=switch],[role=checkbox],[role=tab],a,span')]"
-        ".find(e=>e.offsetParent&&/use miles|with miles|miles&go|miles and go|book with miles|award|redeem/i.test(e.textContent||''));"
+        "(()=>{const l=[...document.querySelectorAll('label,button,[role=switch],[role=checkbox],[role=tab],span')]"
+        ".find(e=>e.offsetParent&&/pay with miles|use miles|book with miles/i.test(e.textContent||'')"
+        "&&!e.closest('nav,header,[role=navigation],a'));"
         "if(l){l.scrollIntoView({block:'center'});l.click();return 'miles:'+(l.textContent||'').replace(/\\s+/g,' ').trim().slice(0,30);}return 'no-miles-toggle';})()"
     )
     print(f"[REWARD] {rw}", flush=True)
