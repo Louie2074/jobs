@@ -413,15 +413,15 @@ async def drive_virgin(tab):
     await tab.sleep(1)
     await click_exact(tab, "search for flights", "search dates", "done", "apply", "confirm")
     await _vs_state(tab, "after-date")
-    # search — target the FORM's submit button (the header nav also says "Search flights"; exclude
-    # header/nav and prefer a button below the top of the page / type=submit)
+    # search — target the FORM's submit button by walking UP from #flights_departing to the search
+    # widget, then finding the search/submit button within it (avoids the header's "Search flights").
     await _real_click(tab,
-        "(()=>{const bs=[...document.querySelectorAll('button,input[type=submit],[role=button]')]"
-        ".filter(e=>e.offsetParent&&/search flights|search for reward|^\\s*search\\b/i.test"
-        "((e.textContent||'')+(e.getAttribute('aria-label')||'')+(e.value||''))"
-        "&&!e.closest('header,nav,[role=banner],[role=navigation]'));"
-        "bs.sort((a,b)=>(b.type==='submit')-(a.type==='submit')||b.getBoundingClientRect().top-a.getBoundingClientRect().top);"
-        "return bs[0];})()",
+        "(()=>{const inp=document.getElementById('flights_departing');if(!inp)return null;let c=inp;"
+        "for(let i=0;i<12&&c.parentElement;i++){c=c.parentElement;"
+        "const b=[...c.querySelectorAll('button,input[type=submit],[role=button]')]"
+        ".find(e=>e.offsetParent&&/search for reward|search flights|^\\s*search\\b/i.test"
+        "((e.textContent||'')+(e.value||'')+(e.getAttribute('aria-label')||'')));"
+        "if(b)return b;}return null;})()",
         "form-search-btn")
     await tab.sleep(28)  # availability render / API (/travelplus/search-panel-api)
     where = await tab.evaluate(
