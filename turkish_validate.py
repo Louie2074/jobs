@@ -22,7 +22,7 @@ def P(msg):
 
 
 def _watchdog():
-    time.sleep(150)
+    time.sleep(220)
     sys.stdout.write(">>> WATCHDOG 150s — hung, exiting\n")
     sys.stdout.flush()
     os._exit(3)
@@ -65,16 +65,14 @@ async def main():
             await asyncio.sleep(0.5)
     P("CDP port up; uc.start")
     browser = await uc.start(host="127.0.0.1", port=port)
-    P("connected; navigating to warm page")
-    tab = await browser.get(WARM)
-    P("navigate returned; sleeping 8s")
-    await tab.sleep(8)
+    warm_page = "https://www.turkishairlines.com/en-us/miles-and-smiles/book-award-tickets/"
+    P(f"navigating to warm page: {warm_page}")
+    tab = await browser.get(warm_page)
+    P("navigate returned; sleeping 20s (let PerimeterX fully init)")
+    await tab.sleep(20)
     rs = await tab.evaluate("document.readyState")
     P(f"readyState = {rs!r}")
-    title = await tab.evaluate("document.title")
-    P(f"title = {str(title)[:60]!r}")
 
-    P("running in-page availability fetch")
     body = {
         "selectedBookerSearch": "O", "selectedCabinClass": "ECONOMY", "moduleType": "AWARD",
         "passengerTypeList": [{"quantity": 1, "code": "ADULT"}],
@@ -93,11 +91,22 @@ async def main():
         f"    headers: {json.dumps(headers)}, body: JSON.stringify({json.dumps(body)}),"
         "     credentials:'include' });"
         "  const t = await res.text();"
-        "  return JSON.stringify({ status: res.status, len: t.length, head: t.slice(0,90) });"
+        "  return JSON.stringify({ status: res.status, len: t.length, head: t.slice(0,70) });"
         "})()"
     )
-    out = await tab.evaluate(js, await_promise=True)
-    P(f"FETCH RESULT: {out}")
+    # Fire the fetch several times with gaps — does PerimeterX auto-solve the crypto challenge
+    # after the first 428 (then later calls pass), or stay challenged?
+    for i in range(5):
+        try:
+            out = await tab.evaluate(js, await_promise=True)
+        except Exception as exc:  # noqa: BLE001
+            out = f"EVALERR {type(exc).__name__}: {str(exc)[:60]}"
+        P(f"FETCH[{i}]: {out}")
+        ck = await tab.evaluate(
+            "document.cookie.split(';').map(c=>c.trim().split('=')[0]).filter(k=>/px|_pxhd|sec/i.test(k)).join(',')"
+        )
+        P(f"  px-cookies: {ck!r}")
+        await tab.sleep(8)
     P("DONE — tearing down")
     try:
         browser.stop()
