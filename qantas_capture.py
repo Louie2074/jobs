@@ -412,43 +412,41 @@ async def drive_qantas(tab):
         "dep-day")
     await tab.sleep(1.5)
     await _qf_state(tab, "after-date")
-    # submit — diagnose the button first (disabled? where?), real-click it, then check for
-    # validation errors / inline results / navigation. Qantas may open results in a new tab.
-    sbtn = await tab.evaluate(
-        "(()=>{const b=document.querySelector('[data-testid=search-flights-btn] button[type=submit]')"
-        "||document.querySelector('[data-testid=search-flights-btn] button');if(!b)return 'no-submit-btn';"
-        "const r=b.getBoundingClientRect();return JSON.stringify({disabled:b.disabled,"
-        "ariaDisabled:b.getAttribute('aria-disabled'),text:(b.textContent||'').slice(0,20),"
-        "x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),w:r.width});})()"
+    # submit via form.requestSubmit (reliable; button-click coords shift with layout). This
+    # navigates qantas.com/book/flights -> book.qantas.com/qf-booking (the award engine, no login).
+    sub = await tab.evaluate(
+        "(()=>{const b=document.querySelector('[data-testid=search-flights-btn] button');if(!b)return 'no-btn';"
+        "if(b.form&&b.form.requestSubmit){try{b.form.requestSubmit(b);return 'requestSubmit';}catch(e){b.click();return 'click-fallback';}}"
+        "b.click();return 'click';})()"
     )
-    print(f"[SUBMIT BTN] {sbtn}", flush=True)
-    await _real_click(tab,
-        "(document.querySelector('[data-testid=search-flights-btn] button[type=submit]')||"
-        "document.querySelector('[data-testid=search-flights-btn] button'))",
-        "submit")
-    await tab.sleep(4)
-    val = await tab.evaluate(
-        "JSON.stringify([...document.querySelectorAll('[aria-invalid=true],[class*=error],[role=alert],[class*=Error]')]"
-        ".filter(e=>e.offsetParent&&(e.textContent||'').trim()).map(e=>(e.textContent||'').replace(/\\s+/g,' ').trim().slice(0,55)).slice(0,5))"
-    )
-    print(f"[VALIDATION] {str(val)[:400]}", flush=True)
-    # fallback: if still on /book/flights, try requestSubmit on the form
-    await tab.sleep(20)
-    fb = await tab.evaluate(
-        "(()=>{if(!/\\/book\\/flights$/.test(location.pathname))return 'navigated';"
-        "const b=document.querySelector('[data-testid=search-flights-btn] button');"
-        "if(b&&b.form&&b.form.requestSubmit){try{b.form.requestSubmit(b);return 'requestSubmit';}catch(e){return 'rs-err:'+e}}"
-        "return 'no-form';})()"
-    )
-    print(f"[SUBMIT FALLBACK] {fb}", flush=True)
-    await tab.sleep(10)
-    where = await tab.evaluate(
-        "JSON.stringify({url:location.href.slice(0,90),path:location.pathname,"
-        "sso:/login|signin|auth0|oauth|identity/i.test(location.href),"
+    print(f"[SUBMIT] {sub}", flush=True)
+    # wait for the redirect chain + qf-booking award results to render (book.qantas.com NUI engine)
+    for w in range(7):
+        await tab.sleep(6)
+        st = await tab.evaluate(
+            "JSON.stringify({host:location.host,path:location.pathname.slice(0,40),"
+            "bodyLen:document.body?document.body.innerText.length:0})"
+        )
+        print(f"[QF WAIT {(w+1)*6}s] {st}", flush=True)
+        try:
+            if json.loads(st).get("bodyLen", 0) > 1500 and "qantas.com" in json.loads(st).get("host", ""):
+                break
+        except Exception:
+            pass
+    final = await tab.evaluate(
+        "JSON.stringify({host:location.host,path:location.pathname,sso:/login|signin|identity|logon/i.test(location.href),"
         "bodyLen:document.body?document.body.innerText.length:0,"
-        "hasResults:/from\\s|points|economy|business/i.test((document.body?document.body.innerText:'').slice(0,5000))})"
+        "snip:(document.body?document.body.innerText:'').replace(/[0-9]/g,'#').slice(0,260)})"
     )
-    print(f"[AFTER SEARCH] {where}", flush=True)
+    print(f"[QF RESULTS] {str(final)[:520]}", flush=True)
+    try:
+        html = await tab.evaluate("document.documentElement.outerHTML")
+        if isinstance(html, str):
+            with open('cap_qantas_results.html', 'w') as fh:
+                fh.write(html[:4000000])
+            print(f"RESULTS_HTML saved ({len(html)} chars)", flush=True)
+    except Exception as e:
+        print(f"HTML_ERR {str(e)[:60]}", flush=True)
     await diag(tab, "03results")
 
 # --------------------------------------------------------------- post-processing
