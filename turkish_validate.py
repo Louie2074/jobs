@@ -9,13 +9,27 @@ settings gate) — set a dummy; this never touches the DB.
 
 import faulthandler
 import logging
+import os
 import sys
+import threading
+import time
 from datetime import date, timedelta
 
 faulthandler.enable()
-# If the run is still alive after 90s/180s (i.e. a browser op is hung), dump every thread's stack
-# to stderr so the log shows exactly where it's stuck.
-faulthandler.dump_traceback_later(90, repeat=True)
+
+
+def _watchdog() -> None:
+    """If still alive after 300s (a browser op is hung), dump every thread's stack and exit the
+    process CLEANLY — a job-timeout cancel loses the step's logs, but a self-exit keeps them."""
+    time.sleep(300)
+    sys.stderr.write("\n===== WATCHDOG: 300s elapsed, dumping stacks (HUNG) =====\n")
+    sys.stderr.flush()
+    faulthandler.dump_traceback()
+    sys.stderr.flush()
+    os._exit(3)
+
+
+threading.Thread(target=_watchdog, daemon=True).start()
 
 logging.basicConfig(
     level=logging.INFO,
