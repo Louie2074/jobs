@@ -28,6 +28,18 @@ ORIGIN_CITY, ORIGIN_CODE = "New York", "JFK"
 DEST_CITY, DEST_CODE = "Abu Dhabi", "AUH"
 FUTURE_DAY = "22"  # day-of-month to click in the calendar (run ~mid-June 2026)
 
+# digital.etihad.com root warms the Amadeus DXP Imperva/Akamai session (clears clean on the
+# Azure IP); then we top-nav to the award deep-link (the exact param set the real "Fly with
+# miles" widget redirects to) and let the SPA fire its availability call, which the persistent
+# add_script_to_evaluate_on_new_document interceptor captures on the results document.
+DIGITAL_ROOT = "https://digital.etihad.com/"
+DEEPLINK = (
+    "https://digital.etihad.com/book/search?LANGUAGE=EN&CHANNEL=DESKTOP"
+    "&B_LOCATION=JFK&E_LOCATION=AUH&TRIP_TYPE=O&CABIN=E&TRAVELERS=ADT"
+    "&TRIP_FLOW_TYPE=AVAILABILITY&SITE_EDITION=EN-US&DATE_1=202607080000"
+    "&WDS_ENABLE_MILES_TOGGLE=TRUE&FLOW=AWARD"
+)
+
 # Full-fidelity interceptor: capture request headers + body and the COMPLETE response text.
 INTERCEPT = r"""
 (()=>{ if(window.__cap)return 'already'; window.__cap=[];
@@ -189,9 +201,12 @@ SKIP = ("google", "doubleclick", "adsrvr", "facebook", "tiktok", "optimizely", "
         "qualtric", "onetrust", "px-cloud", "useinsider", "pisano", "demdex", "branch.io",
         "quantummetric", "kampyle", "sojern", "bing", "pinterest", "applicationinsights",
         "datadog", "linkedin", "akstat", "akam", "/akam/", "boomerang", "mpulse",
-        "newrelic", "nr-data", "cdn-cgi", "fonts.", ".woff", ".css", ".js?", ".svg", ".png")
-AWARD_KW = ("mile", "avios", "point", "awardprice", "milesamount", "fareawards", "redemption",
-            "totalfare", "equivalentamount", "rewardseat", "pointsprice", "amount")
+        "newrelic", "nr-data", "cdn-cgi", "fonts.", ".woff", ".css", ".js?", ".svg", ".png",
+        # reference data, not availability (these are airport lists — false award positives)
+        "coredata", "search-panel", "/origins/", "/destinations/", "/airports", "/stations")
+# Require an actual award-miles signal, not generic "amount/price/total" that match everything.
+AWARD_KW = ("mile", "avios", "milesamount", "fareawards", "rewardseat", "pointsprice",
+            "awardprice", "redeemmiles", "milevalue", "redemption")
 
 
 def is_interesting(u: str) -> bool:
@@ -316,16 +331,37 @@ async def main():
             await tab.send(uc.cdp.page.add_script_to_evaluate_on_new_document(INTERCEPT))
         except Exception as e:
             print("inject_err", str(e)[:80], flush=True)
-        await tab.get(WARM_URL)
-        await tab.sleep(9)
+        # warm the Amadeus DXP host so Imperva/Akamai trust the session
+        await tab.get(DIGITAL_ROOT)
+        await tab.sleep(12)
+        await diag(tab, "00warm_digital")
+        # top-nav to the award deep-link; persistent interceptor reinstalls on the results doc
         try:
-            await tab.evaluate(INTERCEPT)
+            await tab.get(DEEPLINK)
+        except Exception as e:
+            print(f"NAV_ERR {type(e).__name__}: {str(e)[:120]}", flush=True)
+        await tab.sleep(30)  # availability is slow (session/cart + Amadeus pricing)
+        try:
+            await tab.evaluate(INTERCEPT)  # idempotent re-install in case the doc was fresh
         except Exception:
             pass
+        await tab.sleep(6)
+        await diag(tab, "01results")
+        # fallback: if the deep-link got Imperva-blocked, drive the widget wizard instead
         try:
-            await drive_etihad(tab)
-        except Exception as e:
-            print(f"DRIVE_ERR {type(e).__name__}: {str(e)[:120]}", flush=True)
+            blocked = await tab.evaluate(
+                "/Pardon Our Interruption/i.test(document.documentElement.innerHTML)"
+            )
+        except Exception:
+            blocked = False
+        if blocked:
+            print("DEEPLINK_BLOCKED → falling back to widget drive", flush=True)
+            try:
+                await tab.get(WARM_URL)
+                await tab.sleep(9)
+                await drive_etihad(tab)
+            except Exception as e:
+                print(f"DRIVE_ERR {type(e).__name__}: {str(e)[:120]}", flush=True)
         try:
             final_url = await tab.evaluate("location.href")
             print(f"FINAL_URL: {str(final_url)[:120]}", flush=True)
