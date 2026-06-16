@@ -1,0 +1,39 @@
+name: cathay-capture
+
+# Throwaway recon (workflow_dispatch only): drive the Cathay Asia Miles JFK->HKG award search in
+# headful Chrome under xvfb on the Azure IP and capture the availability call (recon says it's on
+# api.cathaypacific.com) via a page-fetch interceptor + CDP Network capture (service worker
+# bypassed). Writes nothing to the DB. Uploads cap_cathay_*.json + cathay_*.png artifacts.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Capture Cathay award API (headful Chrome under xvfb, Azure IP)
+        run: xvfb-run -a python -u cathay_capture.py
+      - name: Upload capture + screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cathay-capture
+          path: |
+            cap_cathay_full.json
+            cap_cathay_net.json
+            cap_cathay_results.html
+            cathay_*.png
+          if-no-files-found: ignore
