@@ -203,6 +203,20 @@ async def drive_cathay(tab):
     Search → submits to flights.cathaypacific.com. Heavily instrumented (redibe input values +
     candidate search buttons dumped at each stage) so a failed drive reveals the form shape."""
     await accept_cookies(tab)
+    # the "Notification centre" overlay auto-opens and covers the form, intercepting date/search
+    # clicks — close it (and press Escape) before driving.
+    for _ in range(3):
+        closed = await tab.evaluate(
+            "(()=>{const c=document.querySelector('.notificationCenter__headerClose,"
+            "[class*=notificationCenter] [aria-label=Close],[class*=notificationCenter__overlay] [role=button]');"
+            "if(c){c.click();return 'closed-notif';}"
+            "const o=document.querySelector('[class*=notificationCenter__overlay]');"
+            "return o?'overlay-open-no-close-btn':'no-notif';})()"
+        )
+        print(f"[NOTIF] {closed}", flush=True)
+        if closed == "no-notif":
+            break
+        await tab.sleep(1)
     await diag(tab, "00warm")
     # dump the redibe widget container HTML for offline date/search-button design
     try:
