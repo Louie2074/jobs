@@ -25,7 +25,7 @@ import nodriver as uc
 # Going to / One way). Filling + searching it submits to the flights.cathaypacific.com IBE, whose
 # availability is served by api.cathaypacific.com — the CDP Network capture (below) catches those
 # calls regardless of how they're fetched.
-WARM_URL = "https://www.flytap.com/en-us/"
+WARM_URL = "https://www.flytap.com/"
 ORIGIN_CITY, ORIGIN_CODE = "New York", "JFK"
 DEST_CITY, DEST_CODE = "Lisbon", "LIS"
 FUTURE_DAY = "22"  # day-of-month to click in the calendar (run ~mid-June 2026)
@@ -283,6 +283,15 @@ async def drive_tap(tab):
         "if(b){b.click();return 'closed';}return 'none';})()"
     )
     await _kill_overlays(tab)
+    # raw-HTML diagnostic: is it a Cloudflare challenge / empty block, or just slow?
+    rawdiag = await tab.evaluate(
+        "(()=>{const h=document.documentElement?document.documentElement.outerHTML:'';"
+        "return JSON.stringify({host:location.host,path:location.pathname.slice(0,30),"
+        "htmlLen:h.length,cf:/just a moment|cf-browser-verification|challenge-platform|cloudflare|cf_chl|turnstile/i.test(h),"
+        "denied:/access denied|forbidden|don.t have permission/i.test(h),"
+        "head:h.replace(/[0-9a-f]{16,}/gi,'#').slice(0,260)});})()"
+    )
+    print(f"[RAW] {str(rawdiag)[:500]}", flush=True)
     # poll up to ~40s for the booking widget to render (slow-render vs withheld decides tractability)
     for w in range(8):
         await tab.sleep(5)
