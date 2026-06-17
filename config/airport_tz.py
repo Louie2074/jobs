@@ -24,6 +24,7 @@ AIRPORT_TZ: dict[str, str] = {
     "FAI": "America/Anchorage",
     "FLL": "America/New_York",
     "GEG": "America/Los_Angeles",
+    "HND": "Asia/Tokyo",  # Tokyo Haneda — Alaska partner (JAL) origin
     "HNL": "Pacific/Honolulu",
     "HOU": "America/Chicago",
     "IAD": "America/New_York",
@@ -34,6 +35,7 @@ AIRPORT_TZ: dict[str, str] = {
     "LAS": "America/Los_Angeles",
     "LAX": "America/Los_Angeles",
     "LGA": "America/New_York",
+    "LHR": "Europe/London",  # London Heathrow — Alaska partner (BA) origin
     "LIH": "Pacific/Honolulu",
     "MCO": "America/New_York",
     "MDW": "America/Chicago",
