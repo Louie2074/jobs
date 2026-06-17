@@ -11,12 +11,32 @@ database (`md:point_pilot`).
 | `cleanup_flights.py` | `cleanup-flights.yml` | daily 03:15 UTC | Deletes rows from `flights` whose departure `date` is older than yesterday (UTC). |
 | `transfer_bonuses.py` | `transfer-bonuses.yml` | 1st & 15th, 09:00 UTC | Scrapes current point-transfer bonuses from travel-on-points.com and snapshot-replaces the `transfer_bonuses` table. |
 | `transfer_partners.py` | `transfer-partners.yml` | 1st & 15th, 10:00 UTC | Scrapes bank→airline transfer partners + ratios from thriftytraveler.com and full-table snapshot-replaces the `transfer_partners` table (sole owner). |
-| `delta_browser_scrape.py` | `delta-browser-scrape.yml` | daily 08:00 UTC + on-demand dispatch | `nodriver` browser scrape of Delta award space (Azure runner IP clears Akamai) → `flights`. |
+| `delta_browser_scrape.py` | `delta-browser-scrape.yml` | daily 08:00 UTC + on-demand dispatch | `nodriver` browser scrape of Delta SkyMiles award space (Azure runner IP clears Akamai) → `flights`. |
 | `southwest_browser_scrape.py` | `southwest-browser-scrape.yml` | daily 09:00 UTC + on-demand dispatch | `nodriver` browser scrape of Southwest Rapid Rewards award space (Azure runner IP mints the F5/Shape sensor) → `flights`. |
+| `turkish_browser_scrape.py` | `turkish-browser-scrape.yml` | daily 10:00 UTC + on-demand dispatch | `nodriver` browser scrape of Turkish Miles&Smiles award space, US↔IST (Azure runner IP clears the TLS-fingerprint block + PerimeterX) → `flights`. |
+| `etihad_browser_scrape.py` | `etihad-browser-scrape.yml` | daily 11:00 UTC + on-demand dispatch | `nodriver` DOM scrape of Etihad Guest award space, US↔AUH (Azure runner IP clears Akamai + Imperva ABP) → `flights`. |
 
-`obs.py` is the shared Better Stack
-shipper used by the cleanup + transfer jobs (Delta and Southwest use the vendored `pipeline/obs.py`);
-`conftest.py` holds shared pytest fixtures.
+`obs.py` is the shared Better Stack shipper used by the cleanup + transfer jobs; the browser
+scrapers use the vendored `pipeline/obs.py`. `conftest.py` holds shared pytest fixtures.
+
+### Award browser scrapers (Delta / Southwest / Turkish / Etihad)
+
+Four airlines' award space is scraped here rather than in `points-pilot-scrapers` because their
+sites block Fly/datacenter IPs (Akamai 444, F5/Shape, Imperva ABP, TLS fingerprinting) but clear
+cleanly on GitHub's Azure runner IPs in a warmed headful Chrome (`nodriver`, under `xvfb`). Each
+`*_browser_scrape.py` entrypoint is a **thin config** — its route list, `<AIRLINE>_*` env vars, and
+its `scrapers/<airline>.py` Scraper class — calling the shared
+[`browser_scrape_common.run_scrape()`](browser_scrape_common.py). The shared module owns the run
+plan (cron stride / single-route on-demand / sharding), the scrape loop, the `scrape_run` Better
+Stack metric, the freshness snapshot, and the heartbeat ping, so all four behave identically.
+
+Each entrypoint accepts on-demand `workflow_dispatch` inputs (`origin`, `destination`, `dates`) for
+a single-route run, and `<AIRLINE>_SCRAPE_DAYS` / `<AIRLINE>_SHARDS` env tuning. The
+`scrapers/browser.py` base + `config/airport_tz.py` are vendored from `points-pilot-scrapers`.
+
+**Adding a new no-login airline** is a documented recipe — see `CLAUDE.md`. (Several bank-partner
+airlines were reconned and parked because they require login or wall the datacenter IP behind a
+CAPTCHA; the recon notes live in the agent memory, not this repo.)
 
 ### `cleanup_flights.py`
 
@@ -97,6 +117,8 @@ Add these as repository secrets (Settings → Secrets and variables → Actions)
 | `TRANSFER_PARTNERS_HEARTBEAT_URL` | no | Better Stack heartbeat for the transfer-partners run |
 | `DELTA_HEARTBEAT_URL` | no | Better Stack heartbeat for the daily Delta browser scrape |
 | `SOUTHWEST_HEARTBEAT_URL` | no | Better Stack heartbeat for the daily Southwest browser scrape |
+| `TURKISH_HEARTBEAT_URL` | no | Better Stack heartbeat for the daily Turkish browser scrape |
+| `ETIHAD_HEARTBEAT_URL` | no | Better Stack heartbeat for the daily Etihad browser scrape |
 
 The workflows also expose a manual **Run workflow** button (`workflow_dispatch`)
 with a `dry_run` toggle.
