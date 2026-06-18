@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-cleanup_flights — delete stale rows from the MotherDuck `flights` table.
+cleanup_flights — delete stale rows from the MotherDuck `flights` and `cash_fares`
+tables.
 
-Runs daily on a GitHub Actions cron. Deletes every flight whose departure
-`date` is older than yesterday (UTC) — i.e. it keeps yesterday plus everything
-forward, and drops everything before yesterday. The connection is pinned to UTC
-so `current_date` resolves to the UTC calendar date regardless of where the
-runner happens to live.
+Runs daily on a GitHub Actions cron. Deletes every row whose travel `date` is
+older than yesterday (UTC) — i.e. it keeps yesterday plus everything forward, and
+drops everything before yesterday — across both date-keyed tables (see
+`CLEANUP_TABLES`). The connection is pinned to UTC so `current_date` resolves to
+the UTC calendar date regardless of where the runner happens to live.
 
 This mirrors the scraper's old `expire_stale_flights()` cleanup (now removed from
 the scraper, which is a pure write pipeline): `expires_at` is a scrape-freshness
-TTL, NOT a signal that the flight is gone, so cleanup is anchored to the actual
-flight `date`.
+TTL, NOT a signal that the row is gone, so cleanup is anchored to the actual
+travel `date`. `cash_fares` (Google Flights cash prices powering CPP) has no other
+cleanup path, so it is pruned here alongside `flights`.
 
 Observability: emits a `cleanup_flights_run` completion metric and ships WARNING+
 logs to Better Stack when BETTERSTACK_SOURCE_TOKEN is set (see obs.py). All a
@@ -54,6 +56,29 @@ logger = logging.getLogger("cleanup_flights")
 # everything before. Identical to the scraper's old expire_stale_flights() predicate.
 STALE_PREDICATE = "date < current_date - INTERVAL '1 day'"
 
+# Tables pruned by travel `date`. Both share the same date-keyed grain: their
+# writers upsert only for dates still being scraped, so once a travel date passes
+# the row is never touched again and would otherwise linger forever. `cash_fares`
+# (Google Flights cash prices for CPP) has no other cleanup, so it rides this job.
+CLEANUP_TABLES = ("flights", "cash_fares")
+
+
+def prune_stale(conn: duckdb.DuckDBPyConnection, *, dry_run: bool = False) -> dict[str, int]:
+    """Delete (or, when dry_run, count) rows older than yesterday UTC per cleanup table.
+
+    Returns ``{table: rows}`` — rows deleted, or the would-delete count under dry_run.
+    Anchored to the travel `date`, not `expires_at` (a scrape-freshness TTL, not an
+    absence signal). DuckDB's DELETE returns a single row holding the count removed.
+    """
+    counts: dict[str, int] = {}
+    for table in CLEANUP_TABLES:
+        if dry_run:
+            sql = f"SELECT count(*) FROM {table} WHERE {STALE_PREDICATE}"
+        else:
+            sql = f"DELETE FROM {table} WHERE {STALE_PREDICATE}"
+        counts[table] = conn.execute(sql).fetchone()[0]
+    return counts
+
 
 def connect() -> duckdb.DuckDBPyConnection:
     """Open a UTC-pinned MotherDuck connection to the point_pilot database."""
@@ -85,27 +110,24 @@ def main() -> int:
     install_log_shipping("point-pilot-jobs")
 
     started = time.monotonic()
-    deleted = 0
-    would_delete = 0
+    counts: dict[str, int] = {table: 0 for table in CLEANUP_TABLES}
     ok = False
     try:
         conn = connect()
         # Resolve the cutoff once so logs/metrics name the exact UTC boundary applied.
         cutoff = conn.execute("SELECT (current_date - INTERVAL '1 day')::DATE").fetchone()[0]
 
-        if args.dry_run:
-            would_delete = conn.execute(
-                f"SELECT count(*) FROM flights WHERE {STALE_PREDICATE}"
-            ).fetchone()[0]
-            logger.info(
-                "[dry-run] %d flight row(s) with date < %s (UTC) would be deleted.",
-                would_delete,
-                cutoff,
-            )
-        else:
-            # DuckDB's DELETE returns a single-row result holding the rows removed.
-            deleted = conn.execute(f"DELETE FROM flights WHERE {STALE_PREDICATE}").fetchone()[0]
-            logger.info("Deleted %d flight row(s) with date < %s (UTC).", deleted, cutoff)
+        counts = prune_stale(conn, dry_run=args.dry_run)
+        total = sum(counts.values())
+        breakdown = ", ".join(f"{n} {table}" for table, n in counts.items())
+        logger.info(
+            "%s%d row(s) with date < %s (UTC) %s (%s).",
+            "[dry-run] " if args.dry_run else "",
+            total,
+            cutoff,
+            "would be deleted" if args.dry_run else "deleted",
+            breakdown,
+        )
 
         ok = True
         return 0
@@ -114,17 +136,20 @@ def main() -> int:
         logger.exception("cleanup_flights failed")
         return 1
     finally:
+        # Field name kept as `deleted` for real runs (dashboard continuity); dry-runs
+        # report `would_delete`. Per-table counts ride alongside (deleted_flights, …).
+        field = "would_delete" if args.dry_run else "deleted"
         metric = {
             "event": "cleanup_flights_run",
             "service": "point-pilot-jobs",
             "job": "cleanup_flights",
             "ok": ok,
-            "deleted": deleted,
             "dry_run": args.dry_run,
             "duration_s": round(time.monotonic() - started, 3),
+            field: sum(counts.values()),
         }
-        if args.dry_run:
-            metric["would_delete"] = would_delete
+        for table, n in counts.items():
+            metric[f"{field}_{table}"] = n
         ship_metric(metric)
         flush()  # drain in-flight Better Stack POSTs before the process exits
         # Heartbeat only on a successful real run — a failed/never-run cron then

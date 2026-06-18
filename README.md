@@ -8,7 +8,7 @@ database (`md:point_pilot`).
 
 | Script | Workflow | Schedule | What it does |
 |---|---|---|---|
-| `cleanup_flights.py` | `cleanup-flights.yml` | daily 03:15 UTC | Deletes rows from `flights` whose departure `date` is older than yesterday (UTC). |
+| `cleanup_flights.py` | `cleanup-flights.yml` | daily 03:15 UTC | Deletes rows from `flights` **and `cash_fares`** whose travel `date` is older than yesterday (UTC). |
 | `transfer_bonuses.py` | `transfer-bonuses.yml` | 1st & 15th, 09:00 UTC | Scrapes current point-transfer bonuses from travel-on-points.com and snapshot-replaces the `transfer_bonuses` table. |
 | `transfer_partners.py` | `transfer-partners.yml` | 1st & 15th, 10:00 UTC | Scrapes bank→airline transfer partners + ratios from thriftytraveler.com and full-table snapshot-replaces the `transfer_partners` table (sole owner). |
 | `delta_browser_scrape.py` | `delta-browser-scrape.yml` | daily 08:00 UTC + on-demand dispatch | `nodriver` browser scrape of Delta SkyMiles award space (Azure runner IP clears Akamai) → `flights`. |
@@ -42,8 +42,10 @@ CAPTCHA; the recon notes live in the agent memory, not this repo.)
 
 ### `cleanup_flights.py`
 
-Deletes every flight older than yesterday (UTC) — keeps yesterday plus all future
-dates. Cleanup is anchored to the flight `date`, not `expires_at` (which is only a
+Deletes every row older than yesterday (UTC) — keeps yesterday plus all future
+dates — from both date-keyed tables: `flights` and `cash_fares` (the Google Flights
+cash prices powering CPP, which have no other cleanup path). See `CLEANUP_TABLES`.
+Cleanup is anchored to the travel `date`, not `expires_at` (which is only a
 scrape-freshness TTL); this logic was moved out of the scraper (now a pure write
 pipeline) into this repo.
 
@@ -53,9 +55,10 @@ python cleanup_flights.py --dry-run  # report how many would be deleted, delete 
 ```
 
 **Observability (optional).** When `BETTERSTACK_SOURCE_TOKEN` is set, each run ships
-a `cleanup_flights_run` completion metric to Better Stack (`ok`, `deleted`,
-`duration_s`, `dry_run`) plus WARNING+ logs (failures with tracebacks), via direct
-HTTPS POST — see `obs.py`. Reuse the scraper's source token so events land in the
+a `cleanup_flights_run` completion metric to Better Stack (`ok`, `deleted` total +
+per-table `deleted_flights`/`deleted_cash_fares`, `duration_s`, `dry_run`) plus
+WARNING+ logs (failures with tracebacks), via direct HTTPS POST — see `obs.py`.
+Reuse the scraper's source token so events land in the
 same source; they're tagged `service=points-pilot-jobs`. No token → no-op.
 
 ### `transfer_bonuses.py`
