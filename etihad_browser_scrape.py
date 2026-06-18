@@ -86,14 +86,15 @@ def main() -> None:
 
     from db.schema import migrate
     from pipeline.obs import install_log_shipping
-    from scrapers.etihad import EtihadScraper
 
     install_log_shipping("point-pilot-etihad")
-    migrate()  # idempotent; brings a fresh DB to v10 (no-op on the already-migrated prod DB)
+    migrate()  # idempotent; brings a fresh DB to the current schema version (no-op on prod)
     logger.info("Schema ready")
 
     if ROUTE_ORIGIN and ROUTE_DEST:
         # On-demand single-route mode (workflow_dispatch): no queue marking.
+        from scrapers.etihad import EtihadScraper
+
         pairs, dates = _build_plan(
             ROUTE_ORIGIN, ROUTE_DEST, ROUTE_DATES, SCRAPE_DAYS, date.today(), SHARD_INDEX, SHARDS
         )

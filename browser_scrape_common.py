@@ -77,6 +77,9 @@ def build_plan(
             "partial route (origin=%r dest=%r) — running cron mode", route_origin, route_dest
         )
 
+    # List-stride mode: retained only for the single-route / empty-list on-demand path. The cron
+    # list-stride scheduling it once served is superseded by build_queue_plan (the scored queue),
+    # so callers now pass routes=[] here — this loop is a no-op for them, not live cron code.
     pairs: list[tuple[str, str]] = []
     for origin, dest in routes[shard_index::shards]:
         pairs.append((origin, dest))
