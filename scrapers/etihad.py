@@ -102,7 +102,7 @@ def _carrier(flight_number: str) -> str | None:
 
 
 class EtihadScraper(BrowserScraper):
-    """Scraper for Etihad Guest award availability (no login; DOM-scraped via the award deep-link)."""
+    """Scraper for Etihad Guest award availability (no login; DOM-scraped via the award deep-link)."""  # noqa: E501
 
     airline_code = "EY"
     program_name = "Etihad Guest"
@@ -164,7 +164,7 @@ class EtihadScraper(BrowserScraper):
             "   const sleep=ms=>new Promise(r=>setTimeout(r,ms));"
             "   const num=s=>{const v=parseInt(String(s||'').replace(/[^0-9]/g,''),10);"
             "     return isNaN(v)?null:v;};"
-            "   const tx=e=>e?(e.textContent||'').replace(/\\u00a0/g,' ').replace(/\\s+/g,' ').trim():null;"
+            "   const tx=e=>e?(e.textContent||'').replace(/\\u00a0/g,' ').replace(/\\s+/g,' ').trim():null;"  # noqa: E501
             "   let cards=[];"
             "   while(Date.now()<DEADLINE){"
             "     if(/Pardon Our Interruption/i.test(document.documentElement.innerHTML))"
@@ -179,13 +179,13 @@ class EtihadScraper(BrowserScraper):
             "     const q=s=>card.querySelector(s);"
             "     const depL=q('#departureLocation'), arrL=q('#arrivalLocation');"
             "     const fns=[...card.querySelectorAll('.flight-number')]"
-            "       .map(e=>(e.textContent||'').replace(/\\u00a0/g,' ').replace(/\\s+/g,' ').trim())"
+            "       .map(e=>(e.textContent||'').replace(/\\u00a0/g,' ').replace(/\\s+/g,' ').trim())"  # noqa: E501
             "       .filter(Boolean);"
             "     const cabins=[];"
             "     for(const btn of card.querySelectorAll('[data-testid^=\"cabin:\"]')){"
             "       const cab=(btn.getAttribute('data-testid')||'').split(':')[1]||'';"
             "       const mp=btn.querySelector('.price-first-section .price[data-amount]');"
-            "       const cp=btn.querySelector('.remaining-nonconverted-miles .price[data-amount]');"
+            "       const cp=btn.querySelector('.remaining-nonconverted-miles .price[data-amount]');"  # noqa: E501
             "       const miles=mp?num(mp.getAttribute('data-amount')):null;"
             "       const cashCents=cp?num(cp.getAttribute('data-amount')):null;"
             "       if(miles)cabins.push({cabin:cab,miles:miles,cashCents:cashCents});"

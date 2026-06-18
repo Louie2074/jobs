@@ -58,7 +58,7 @@ def main():
             for r in recs[:6]:
                 P(
                     f"     {r.cabin_class:<9} {r.origin}->{r.destination} {r.points_cost:>6} pts "
-                    f"seats={r.available_seats} stops={r.stops} dep={r.departure_time_local} {r.raw_flight_number}"
+                    f"seats={r.available_seats} stops={r.stops} dep={r.departure_time_local} {r.raw_flight_number}"  # noqa: E501
                 )
     finally:
         P("closing scraper")

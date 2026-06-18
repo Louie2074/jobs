@@ -1,23 +1,27 @@
-# Vendored Delta + Southwest scrapers (for delta-browser-scrape / southwest-browser-scrape)
+# Vendored browser scrapers (Delta / Southwest / Turkish / Etihad)
 
-`scrapers/`, `config/`, `db/`, `pipeline/` here let this repo run the nodriver Delta and
-Southwest browser scrapes **self-contained** (GH Actions Azure IP clears Akamai / mints the
-F5/Shape sensor where Fly's IP gets blocked), with no cross-repo checkout / PAT.
+`scrapers/`, `config/`, `db/`, `pipeline/` here let this repo run the nodriver Delta,
+Southwest, Turkish, and Etihad browser scrapes **self-contained** (GH Actions Azure IP clears
+Akamai / Imperva / mints the F5/Shape sensor where Fly's IP gets blocked), with no cross-repo
+checkout / PAT.
 
-Files: `scrapers/{base,browser,delta,southwest}.py`, `config/{settings,airport_tz}.py`,
+Files: `scrapers/{base,browser,delta,southwest,turkish,etihad}.py`, `config/{settings,airport_tz}.py`,
 `db/{connection,queries,schema}.py`, `pipeline/normalizer.py`, `pipeline/obs.py`.
-Entry points: `delta_browser_scrape.py`, `southwest_browser_scrape.py`.
+Entry points: `delta_browser_scrape.py`, `southwest_browser_scrape.py`,
+`turkish_browser_scrape.py`, `etihad_browser_scrape.py`.
 
 `config/airport_tz.py` (copy of the scraper repo's) maps airport → IANA tz so `delta.py`
 stores tz-aware local departure/arrival times (a naive value would land in the TIMESTAMPTZ
 column as UTC, shifting every time by the airport's offset). Re-sync if it changes upstream.
 
-`pipeline/obs.py` is a copy of the scraper repo's (canonical there) — it gives the Delta run
-Better Stack log shipping + a `scrape_run` metric (service `point-pilot-delta`) at parity with the
+`pipeline/obs.py` is a copy of the scraper repo's (canonical there) — it gives each browser scrape
+Better Stack log shipping + a `scrape_run` metric (per-airline service `point-pilot-delta` /
+`-southwest` / `-turkish` / `-etihad`, set in each `*_browser_scrape.py`) at parity with the
 Alaska/JetBlue + Google Flights scrapers. Re-sync if it changes upstream.
 
-**`scrapers/browser.py`, `scrapers/delta.py`, and `scrapers/southwest.py` are CANONICAL HERE** — the Delta
-and Southwest browser scrapers are maintained in this repo (the scraper repo no longer carries these).
+**`scrapers/browser.py`, `scrapers/delta.py`, `scrapers/southwest.py`, `scrapers/turkish.py`, and
+`scrapers/etihad.py` are CANONICAL HERE** — the Delta, Southwest, Turkish, and Etihad browser
+scrapers are maintained in this repo (the scraper repo no longer carries these).
 The other files (`base.py`, `config/settings.py`, `db/*`, `pipeline/normalizer.py`) are copies of
 **points-pilot-scrapers** shared modules — those stay canonical in the scraper repo (Alaska/JetBlue
 use them), so re-sync them here if they change upstream. Editing the shared copies without
