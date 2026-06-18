@@ -105,7 +105,7 @@ ALASKA_MED_ROUTES: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 
 # Delta SkyMiles — anchored on ATL/MSP/DTW/SLC hubs + JFK/LAX/SEA/BOS gateways.
-# 26 → 52 directed pairs.
+# 26 → 50 directed pairs.
 DELTA_MED_ROUTES: list[tuple[str, str]] = [
     # existing ATL megahub + transcons
     ("ATL", "LAX"),
@@ -167,7 +167,7 @@ DELTA_MED_ROUTES: list[tuple[str, str]] = [
 ]
 
 # Southwest Rapid Rewards — focus cities DEN/MDW/BWI/LAS/PHX/DAL/HOU/OAK/SAN.
-# 22 → 44 directed pairs.
+# 22 → 42 directed pairs.
 SOUTHWEST_MED_ROUTES: list[tuple[str, str]] = [
     # existing focus-city pairs
     ("LAS", "LAX"),
