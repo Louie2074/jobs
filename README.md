@@ -33,8 +33,13 @@ plan (cron stride / single-route on-demand / sharding), the scrape loop, the `sc
 Stack metric, the freshness snapshot, and the heartbeat ping, so all four behave identically.
 
 Each entrypoint accepts on-demand `workflow_dispatch` inputs (`origin`, `destination`, `dates`) for
-a single-route run, and `<AIRLINE>_SCRAPE_DAYS` / `<AIRLINE>_SHARDS` env tuning. The
-`scrapers/browser.py` base + `config/airport_tz.py` are vendored from `points-pilot-scrapers`.
+a single-route run, and `<AIRLINE>_SCRAPE_DAYS` / `<AIRLINE>_SHARDS` env tuning. **Sharding** (a
+GH-Actions `matrix` over `<AIRLINE>_SHARD_INDEX`) splits the directed-leg catalogue across parallel
+runners on distinct IPs — used where a single shard can't cover the catalogue under its per-IP WAF
+cap (`<AIRLINE>_MAX_LEGS_PER_SHARD`, default 20): **Delta** and **Southwest** run 3 shards, **Turkish**
+2 (its 40 legs > the 20-leg cap). **Etihad** runs **single-shard** by design — its 20 directed legs
+fit one shard's cap — so its workflow intentionally has no `matrix`. The `scrapers/browser.py` base +
+`config/airport_tz.py` are vendored from `points-pilot-scrapers`.
 
 **Adding a new no-login airline** is a documented recipe — see `CLAUDE.md`. (Several bank-partner
 airlines were reconned and parked because they require login or wall the datacenter IP behind a
@@ -65,7 +70,9 @@ same source; they're tagged `service=points-pilot-jobs`. No token → no-op.
 
 Scrapes the current point-transfer bonuses from travel-on-points.com and
 snapshot-replaces the `transfer_bonuses` table in MotherDuck for every airline in
-`transfer_partners`. Fail-closed: any HTTP non-2xx or parse error raises and exits
+`transfer_partners`. Like the award scrapers, it drives **headful Chrome via `nodriver`**
+(the table is JS-rendered), so its workflow runs `browser-actions/setup-chrome` first.
+Fail-closed: any HTTP non-2xx or parse error raises and exits
 non-zero (workflow failure). Zero active bonuses is valid — it deletes all tracked
 bonuses and inserts nothing.
 
@@ -80,8 +87,10 @@ WARNING+ logs when `BETTERSTACK_SOURCE_TOKEN` is set).
 ### `transfer_partners.py`
 
 Scrapes bank→airline transfer partners and ratios from thriftytraveler.com and
-full-table snapshot-replaces the `transfer_partners` table in MotherDuck. This job
-is the **sole owner** of that table — the scraper no longer seeds it. Coverage is
+full-table snapshot-replaces the `transfer_partners` table in MotherDuck. Drives
+**headful Chrome via `nodriver`** (JS-rendered tables; workflow runs
+`browser-actions/setup-chrome`). This job is the **sole owner** of that table — the
+scraper no longer seeds it. Coverage is
 gated to the already-tracked IATA airline set; hotel rows, untracked airlines, and
 the Rove + Marriott sections are skipped. Ratios are read as `bank : partner` and
 stored as `bank ÷ partner` (bank points per mile).

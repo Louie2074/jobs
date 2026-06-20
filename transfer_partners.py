@@ -26,14 +26,13 @@ import os
 import re
 import subprocess
 import time
-import urllib.request
 from decimal import ROUND_HALF_UP, Decimal
 
 import duckdb
 import nodriver as uc
 from bs4 import BeautifulSoup
 
-from obs import flush, install_log_shipping, ship_metric
+from obs import flush, install_log_shipping, ping_heartbeat, ship_metric
 
 logger = logging.getLogger("transfer_partners")
 
@@ -322,14 +321,6 @@ def reconcile(
     return deleted, inserted
 
 
-def _ping_heartbeat() -> None:
-    if not PARTNERS_HEARTBEAT_URL:
-        return
-    try:
-        urllib.request.urlopen(PARTNERS_HEARTBEAT_URL, timeout=10).close()
-    except Exception as exc:  # noqa: BLE001 — monitoring must never break the run
-        logger.warning("heartbeat ping failed: %s", exc)
-
 
 def _find_chrome() -> str:
     """Return path to Chrome/Chromium binary, searching common locations."""
@@ -512,7 +503,7 @@ def main() -> int:
         flush()
         # Heartbeat only on a successful real run (dry-runs are manual).
         if ok and not args.dry_run:
-            _ping_heartbeat()
+            ping_heartbeat(PARTNERS_HEARTBEAT_URL, logger)
 
 
 if __name__ == "__main__":

@@ -100,6 +100,17 @@ def ship_log(message: str) -> None:
     _post(url, token, body)
 
 
+def ping_heartbeat(url: str, logger: logging.Logger) -> None:
+    """Ping a Better Stack/uptime heartbeat URL (no-op if unset). Monitoring must never
+    break the run, so failures are logged and swallowed."""
+    if not url:
+        return
+    try:
+        urllib.request.urlopen(url, timeout=10).close()
+    except Exception as exc:  # noqa: BLE001 — monitoring must never break the run
+        logger.warning("heartbeat ping failed: %s", exc)
+
+
 def flush(timeout: float = 5.0) -> None:
     """Wait (up to `timeout` total) for in-flight POSTs to finish, so a short-lived
     process doesn't exit and kill a daemon POST thread mid-request."""
