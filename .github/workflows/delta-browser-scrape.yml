@@ -53,7 +53,7 @@ jobs:
           MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           DELTA_HEARTBEAT_URL: ${{ secrets.DELTA_HEARTBEAT_URL }}
-          DELTA_SCRAPE_DAYS: "5"
+          DELTA_SCRAPE_DAYS: "14"
           DELTA_SHARDS: "3"
           DELTA_SHARD_INDEX: ${{ matrix.shard }}
           DELTA_ROUTE_ORIGIN: ${{ inputs.origin }}
