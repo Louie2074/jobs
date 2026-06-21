@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: ${{ inputs.origin != '' && format('delta-ondemand-{0}-{1}', inputs.origin, inputs.destination) || 'delta-browser-scrape' }}
@@ -33,25 +34,19 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 150   # ceiling (not runtime), headroom for the post-loop metric + heartbeat
-    # Parallel runs on separate runner IPs split DELTA_ROUTES (stride-sharded), so each run stays
-    # comfortably under Delta's per-session Akamai (444) ceiling (~27 directed legs — the live run
-    # blocked on leg 28). 3 shards = ~9 pairs / ~18 legs each. On-demand single-route dispatch
-    # still spawns all shards, but only shard 0 does the work.
+    container:
+      image: ghcr.io/louie2074/points-pilot-jobs-scraper:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --shm-size=2g
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
         shard: [0, 1, 2]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
-      - name: Install xvfb
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-      - name: Install deps
-        run: pip install -r requirements.txt
       - name: Scrape Delta (headful Chrome under xvfb, Azure IP)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
