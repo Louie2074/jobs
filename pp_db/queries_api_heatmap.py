@@ -34,13 +34,22 @@ def get_heatmap(
     date_to: date,
     cabin_class: str | None = None,
     airline: str | None = None,
+    max_stops: int | None = None,
+    max_points: int | None = None,
+    passengers: int = 1,
 ) -> list[dict[str, Any]]:
     """Per-day cheapest-award summary for a route over a date window — the flexible-date heatmap.
 
     Faithful port of the DuckDB ``get_heatmap``: returns one row per day that has flights,
     ``{date, min_points, flight_count}``. Freshness matches ``get_flights``
-    (``f.date >= current_date``, not expires-based). Optional cabin/airline filters. Grouped by
-    day and ordered ``f.date ASC``.
+    (``f.date >= current_date``, not expires-based). Grouped by day and ordered ``f.date ASC``.
+
+    Honours the same per-flight filters the list view applies so the calendar can't disagree with
+    it: ``cabin_class`` / ``airline`` (exact match), ``max_stops`` (``f.stops <= max_stops``;
+    ``max_stops=0`` is nonstop, so guard on ``is not None`` — 0 is falsy), ``max_points`` (the TOTAL
+    party budget ``points_cost * passengers <= max_points``, matching ``get_flights``), and
+    ``passengers`` (keep only flights that can seat the whole party, or the ``-1`` unknown-count
+    sentinel). The aggregated MIN/COUNT therefore reflect only the filtered flights.
     """
     filters = [
         "f.origin = :origin",
@@ -61,6 +70,19 @@ def get_heatmap(
     if airline:
         filters.append("f.airline = :airline")
         params["airline"] = airline
+    if max_stops is not None:
+        # 0 = nonstop; guard on `is not None` so the nonstop case isn't dropped by falsiness.
+        filters.append("f.stops <= :max_stops")
+        params["max_stops"] = max_stops
+    if max_points:
+        # Budget is the TOTAL for the whole party (identical to get_flights at passengers=1).
+        filters.append("f.points_cost * :passengers <= :max_points")
+        params["passengers"] = passengers
+        params["max_points"] = max_points
+    if passengers > 1:
+        # Only keep flights that can seat the whole party; -1 = scraper didn't stamp a count.
+        filters.append("(f.available_seats >= :passengers OR f.available_seats < 0)")
+        params["passengers"] = passengers
 
     sql = text(
         f"""
