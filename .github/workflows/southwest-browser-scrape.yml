@@ -59,7 +59,7 @@ jobs:
           MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           SOUTHWEST_HEARTBEAT_URL: ${{ secrets.SOUTHWEST_HEARTBEAT_URL }}
-          SOUTHWEST_SCRAPE_DAYS: "5"
+          SOUTHWEST_SCRAPE_DAYS: "14"
           SOUTHWEST_SHARDS: "5"
           SOUTHWEST_SHARD_INDEX: ${{ matrix.shard }}
           SOUTHWEST_ROUTE_ORIGIN: ${{ inputs.origin }}
