@@ -54,6 +54,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Scrape Delta (headful Chrome under xvfb, Azure IP)
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           DELTA_HEARTBEAT_URL: ${{ secrets.DELTA_HEARTBEAT_URL }}
