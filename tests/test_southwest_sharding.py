@@ -1,4 +1,4 @@
-"""Phase 3: Southwest cron runs across 3 fresh-IP shards, partitioning the due set disjointly.
+"""Southwest cron runs across N fresh-IP shards (currently 5), partitioning the due set disjointly.
 
 The shard-matrix assertion is pure YAML (no DB — always runs). The plan-partition test exercises
 ``build_queue_plan``→``QueueManager``, which after the MotherDuck→Supabase cutover reads
@@ -23,14 +23,19 @@ _NEEDS_PG = pytest.mark.skipif(
 )
 
 
-def test_southwest_workflow_has_3_shard_matrix():
+def test_southwest_workflow_shard_matrix_is_consistent():
     with open(_WF) as f:
         wf = yaml.safe_load(f)
     job = wf["jobs"]["scrape"]
-    assert job["strategy"]["matrix"]["shard"] == [0, 1, 2], "expected a 3-shard matrix"
-    # the scrape step's env must wire SHARDS=3 + SHARD_INDEX from the matrix
+    shards = job["strategy"]["matrix"]["shard"]
     env = job["steps"][-1]["env"]
-    assert env["SOUTHWEST_SHARDS"] == "3"
+    n = int(env["SOUTHWEST_SHARDS"])
+    # The matrix must be 0..n-1 and SOUTHWEST_SHARDS must equal the matrix length, so every shard
+    # gets a distinct index and the stride-partition (due[idx::n]) covers the whole due set.
+    # Asserting consistency (not a fixed count) keeps this green across shard-ramp steps while
+    # still catching a matrix/SHARDS drift.
+    assert shards == list(range(n)), f"matrix {shards} must be range(SOUTHWEST_SHARDS={n})"
+    assert n >= 3, "Southwest runs at least 3 fresh-IP shards"
     assert env["SOUTHWEST_SHARD_INDEX"] == "${{ matrix.shard }}"
 
 
