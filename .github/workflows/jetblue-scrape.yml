@@ -1,0 +1,37 @@
+name: JetBlue award scrape
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 2,14 * * *"   # 2×/day, offset clear of the award block
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jetblue-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: scrape
+        run: python jetblue_scrape.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+          BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
+          JETBLUE_HEARTBEAT_URL: ${{ secrets.JETBLUE_HEARTBEAT_URL }}
+          JETBLUE_SHARDS: "1"
+          JETBLUE_SHARD_INDEX: ${{ matrix.shard }}

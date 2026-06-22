@@ -46,6 +46,21 @@ def parse_dates_csv(csv: str, logger: logging.Logger | None = None) -> list[date
     return out
 
 
+def dense_sparse_dates(
+    today: date, dense_days: int, sparse_step: int, max_day: int
+) -> list[date]:
+    """Dates matching the always-on scheduler's profile (``scraper/pipeline/scheduler.py``
+    ``_scrape_window``): every day for the first ``dense_days`` offsets (capped at ``max_day``),
+    then every ``sparse_step``-th day out to ``max_day`` EXCLUSIVE. ``max_day`` is the
+    scrape-days-ahead horizon (the exclusive ``range`` stop), not a final offset. Keeps AS/B6's
+    request-volume profile (and WAF exposure) the same as the proven Fly profile, rather than a
+    flat ``range(scrape_days)``."""
+    dense = min(dense_days, max_day)
+    offsets = list(range(dense))
+    offsets += list(range(dense, max_day, max(1, sparse_step)))
+    return [today + timedelta(days=n) for n in offsets]
+
+
 def build_plan(
     routes: list[tuple[str, str]],
     route_origin: str,
@@ -149,6 +164,13 @@ def freshness(source: str, logger: logging.Logger) -> dict:
         return {}
 
 
+def _tier_for_job(job, default: str) -> str:
+    """The expiry tier for a scraped route: the queue RouteJob's adaptive tier in cron mode,
+    or `default` for on-demand _PairJobs (which have no .tier). Fixes the prior flat-MED stamp
+    that ignored HIGH (8h) / LOW (48h) windows."""
+    return getattr(job, "tier", default)
+
+
 def run_scrape(
     scraper,
     pairs: list[tuple[str, str]],
@@ -213,7 +235,7 @@ def run_scrape(
                     logger.error("Error scraping %s→%s %s: %s", origin, dest, travel, exc)
                     error_count += 1
                     continue
-                stamped = stamp_expiry(filter_valid(recs), PriorityTier.MED)
+                stamped = stamp_expiry(filter_valid(recs), _tier_for_job(job, PriorityTier.MED))
                 if stamped:
                     upsert_flights(stamped)
                     route_recs.extend(stamped)
