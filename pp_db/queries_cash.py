@@ -142,6 +142,9 @@ FROM (
       AND date BETWEEN current_date AND current_date + CAST(:days_ahead AS integer)
 ) f
 LEFT JOIN demand d ON d.origin = f.origin AND d.dest = f.destination
+LEFT JOIN pp.cash_coverage cov
+       ON cov.origin = f.origin AND cov.destination = f.destination AND cov.date = f.date
+      AND cov.cabin = f.cabin_class
 WHERE NOT EXISTS (
     SELECT 1 FROM pp.cash_fares c
     WHERE c.origin = f.origin AND c.destination = f.destination AND c.date = f.date
@@ -154,7 +157,9 @@ AND NOT EXISTS (
       AND cc.cabin = f.cabin_class
       AND cc.fare_count = 0 AND cc.next_probe_utc > now()
 )
-ORDER BY {pin_rank}, COALESCE(d.sc, 0) DESC, f.date ASC, f.origin ASC, f.destination ASC
+ORDER BY {pin_rank},
+         COALESCE(cov.last_attempt_utc, TIMESTAMP '1970-01-01') ASC,
+         COALESCE(d.sc, 0) DESC, f.date ASC, f.origin ASC, f.destination ASC
 LIMIT :limit
 """
 

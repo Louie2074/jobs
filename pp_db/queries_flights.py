@@ -142,6 +142,7 @@ _GET_FLIGHTS_COLUMNS = [
     "mixed_cabin",
     "cash_price",
     "cpp",
+    "cpp_basis",
 ]
 
 
@@ -218,18 +219,30 @@ def get_flights(
             f.duration_minutes, f.aircraft_type,
             f.is_saver, f.fare_class, f.layover_airports, f.layover_duration_minutes,
             f.next_day_arrival, f.mixed_cabin,
-            c.cash_price,
+            COALESCE(c.cash_price, CASE WHEN f.stops > 0 THEN cod.cash_price END) AS cash_price,
             -- Postgres' round(numeric, 2) returns NUMERIC. Cast to float8 so the driver yields a
             -- Python float for cpp (callers expect a float; an uncast NUMERIC would yield
             -- Decimal('0.41') != 0.41).
-            CASE WHEN c.cash_price IS NOT NULL AND f.points_cost > 0
-                 THEN round(c.cash_price / f.points_cost * 100, 2)::float8 END AS cpp
+            CASE
+              WHEN f.stops = 0 AND c.cash_price IS NOT NULL AND f.points_cost > 0
+                   THEN round(c.cash_price / f.points_cost * 100, 2)::float8
+              WHEN f.stops > 0 AND COALESCE(c.cash_price, cod.cash_price) IS NOT NULL AND f.points_cost > 0
+                   THEN round(COALESCE(c.cash_price, cod.cash_price) / f.points_cost * 100, 2)::float8
+            END AS cpp,
+            CASE WHEN f.stops > 0 AND cod.cash_price IS NOT NULL AND c.cash_price IS NULL
+                 THEN 'od' ELSE 'exact' END AS cpp_basis
         FROM pp.flights f
         LEFT JOIN pp.cash_fares c
                ON c.origin = f.origin AND c.destination = f.destination AND c.date = f.date
               AND c.airline = f.airline AND c.cabin_class = f.cabin_class
               AND c.flight_number = f.raw_flight_number
               AND c.expires_at_utc > now()
+        LEFT JOIN pp.cash_fares cod
+               ON cod.origin = f.origin AND cod.destination = f.destination AND cod.date = f.date
+              AND cod.cabin_class = f.cabin_class
+              AND cod.airline = '__OD__' AND cod.flight_number = '__OD__'
+              AND cod.expires_at_utc > now()
+              AND f.stops > 0
         WHERE {where}
         ORDER BY f.date ASC, f.points_cost ASC
         LIMIT :limit
