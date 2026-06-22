@@ -1,7 +1,5 @@
-"""Ported query functions (Postgres / SQLAlchemy Core) — the pp_db counterpart of the DuckDB
-``db/queries.py``. Each function takes an explicit SQLAlchemy ``Connection`` so it is testable and
-works under both the sync and async engines. Behaviour must match the DuckDB original row-for-row
-(verified by the parity suite in ``tests/``).
+"""Query functions (Postgres / SQLAlchemy Core). Each function takes an explicit SQLAlchemy
+``Connection`` so it is testable and works under both the sync and async engines.
 """
 
 from __future__ import annotations
@@ -55,9 +53,8 @@ def get_flights_for_match(
 ) -> list[tuple[str, str, str]]:
     """Award flights for one cabin/route/date as (airline, raw_flight_number, dep_hhmm).
 
-    Port of the DuckDB original: ``dep_hhmm`` is the ORIGIN-local wall-clock (HH:MM) rendered from
-    the TIMESTAMPTZ ``departure_time_local`` via ``AT TIME ZONE`` — here Postgres'
-    ``timezone(tz, ts)`` + ``to_char(..., 'HH24:MI')`` (DuckDB used ``strftime(... , '%H:%M')``).
+    ``dep_hhmm`` is the ORIGIN-local wall-clock (HH:MM) rendered from the TIMESTAMPTZ
+    ``departure_time_local`` via Postgres' ``timezone(tz, ts)`` + ``to_char(..., 'HH24:MI')``.
     Origins absent from AIRPORT_TZ return [] (never a possibly-skewed match). Nonstop, non-expired,
     real-flight-number rows only.
     """

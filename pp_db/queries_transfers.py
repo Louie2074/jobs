@@ -1,17 +1,16 @@
-"""Ported query functions — bank programs, transfer partners & transfer bonuses (Postgres /
-SQLAlchemy). The pp_db counterpart of the ``transfers`` block of the DuckDB ``db/queries.py``.
+"""Query functions — bank programs, transfer partners & transfer bonuses (Postgres / SQLAlchemy).
+The ``transfers`` block of the data layer.
 
-Each function takes an explicit SQLAlchemy ``Connection`` as its first arg, then the original
-arguments. Behaviour must match the DuckDB original row-for-row (verified by the parity suite in
-``tests/test_parity_transfers.py``).
+Each function takes an explicit SQLAlchemy ``Connection`` as its first arg, then the call-specific
+arguments.
 
 Dialect notes:
   * Upserts use ``postgresql.insert(...).on_conflict_do_update`` on each table's natural key
-    (mirroring DuckDB's ``ON CONFLICT (...) DO UPDATE SET col = excluded.col``).
-  * ``get_transfer_options`` reproduces the DuckDB ``CEIL`` arithmetic verbatim. DuckDB returns a
-    ``Decimal`` for ``base_points_needed`` but a ``float`` for ``effective_points_needed`` (the
-    ``/ (1.0 + …)`` division promotes to DOUBLE). Postgres' ``ceil`` returns ``Numeric`` for both,
-    so the port casts ``effective_points_needed`` to ``float`` to stay byte-identical to DuckDB.
+    (``ON CONFLICT (...) DO UPDATE SET col = excluded.col``).
+  * ``get_transfer_options`` uses ``CEIL`` arithmetic. ``base_points_needed`` is returned as a
+    ``Decimal`` while ``effective_points_needed`` is returned as a ``float`` (callers expect a
+    float there). Postgres' ``ceil`` returns ``Numeric``, so the query casts
+    ``effective_points_needed`` to ``float``.
 """
 
 from __future__ import annotations
@@ -111,7 +110,7 @@ def upsert_transfer_bonus(
     conn.execute(stmt)
 
 
-# Column order matches the DuckDB original exactly so dict(zip(...)) yields identical keys.
+# Column order — matched to the SELECT below so dict(zip(...)) yields the expected keys.
 _TRANSFER_OPTIONS_COLUMNS = [
     "bank_id",
     "bank_name",
@@ -138,10 +137,10 @@ def get_transfer_options(
 
     Results ordered by effective_points_needed ASC (best deal first).
 
-    Faithful port: the SQL (incl. the ``CEIL`` arithmetic, the active-bonus LEFT JOIN windowed on
-    ``current_date``, and the ``ORDER BY effective_points_needed ASC``) is identical to the DuckDB
-    original. ``effective_points_needed`` is cast to ``float`` because DuckDB's DOUBLE division
-    yields a Python float there, whereas Postgres ``ceil`` would otherwise return a Decimal.
+    The SQL covers the ``CEIL`` arithmetic, the active-bonus LEFT JOIN windowed on
+    ``current_date``, and the ``ORDER BY effective_points_needed ASC``.
+    ``effective_points_needed`` is cast to ``float`` (callers expect a Python float there;
+    Postgres ``ceil`` would otherwise return a Decimal).
     """
     sql = text(
         """
@@ -178,8 +177,7 @@ def get_transfer_options(
     out: list[dict[str, Any]] = []
     for row in rows:
         d = dict(zip(_TRANSFER_OPTIONS_COLUMNS, row, strict=False))
-        # DuckDB returns effective_points_needed as a Python float (DOUBLE division); Postgres'
-        # numeric ceil returns Decimal. Coerce to float for row-for-row parity.
+        # Postgres' numeric ceil returns a Decimal; coerce to float since callers expect a float.
         if d["effective_points_needed"] is not None:
             d["effective_points_needed"] = float(d["effective_points_needed"])
         out.append(d)

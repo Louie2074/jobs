@@ -1,12 +1,11 @@
-"""Ported per-airline scrape-budget query functions (Postgres / SQLAlchemy Core) — the pp_db
-counterpart of the token-bucket helpers in the DuckDB ``db/queries.py``.
+"""Per-airline scrape-budget query functions (Postgres / SQLAlchemy Core) — the token-bucket
+helpers.
 
 Covers the ``airline_budget`` token bucket: ``get_budget`` (read), ``upsert_budget`` (seed/refresh
 config), ``checkout_budget`` (refill-then-grant), and ``refund_budget`` (return unspent tokens).
 
-Each function takes an explicit SQLAlchemy ``Connection`` as its first arg; behaviour must match the
-DuckDB original row-for-row (verified by ``tests/test_parity_budget.py``). The pure token-bucket math
-(``refill`` / ``grant``) still lives in ``pipeline.budget`` and is reused unchanged.
+Each function takes an explicit SQLAlchemy ``Connection`` as its first arg. The pure token-bucket
+math (``refill`` / ``grant``) lives in ``pipeline.budget`` and is reused unchanged.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from pp_db.models import AirlineBudget
 def get_budget(conn: Connection, airline: str) -> dict[str, Any] | None:
     """Fetch an airline's token-bucket row, or None if unconfigured.
 
-    Dict keys mirror the DuckDB original: the ``last_refill_utc`` column is exposed as ``last_refill``.
+    The ``last_refill_utc`` column is exposed under the dict key ``last_refill``.
     """
     stmt = select(
         AirlineBudget.airline,
@@ -67,7 +66,7 @@ def checkout_budget(conn: Connection, airline: str, requested: int, now: datetim
     if row is None:
         return requested
     # last_refill_utc is a naive TIMESTAMP; coerce it to aware UTC so it's comparable with an aware
-    # ``now`` (mirrors the DuckDB original / scheduler.py normalization).
+    # ``now`` (matches scheduler.py normalization).
     last_refill = row["last_refill"]
     if last_refill is not None and last_refill.tzinfo is None and now.tzinfo is not None:
         last_refill = last_refill.replace(tzinfo=timezone.utc)

@@ -13,27 +13,9 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 
-def _require(key: str) -> str:
-    """Raise a clear error if a required env var is missing."""
-    val = os.getenv(key)
-    if not val:
-        raise RuntimeError(
-            f"Missing required environment variable: {key}\n"
-            f"Copy .env.example to .env and fill in your values."
-        )
-    return val
-
-
 def _get(key: str, default: str) -> str:
     return os.getenv(key, default)
 
-
-# ---------------------------------------------------------------------------
-# MotherDuck
-# ---------------------------------------------------------------------------
-# MOTHERDUCK_TOKEN is auto-read by the duckdb package — just ensure it's set.
-MOTHERDUCK_TOKEN: str = _require("MOTHERDUCK_TOKEN")
-MOTHERDUCK_DB: str = "md:point_pilot"
 
 # ---------------------------------------------------------------------------
 # Scraping behaviour

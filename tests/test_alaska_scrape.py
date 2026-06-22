@@ -1,5 +1,4 @@
-def test_alaska_scrape_imports_and_configures(monkeypatch):
-    monkeypatch.setenv("MOTHERDUCK_TOKEN", "dummy")
+def test_alaska_scrape_imports_and_configures():
     import alaska_scrape
     assert alaska_scrape.MAX_LEGS_PER_SHARD == 40
     assert alaska_scrape.SHARDS >= 1

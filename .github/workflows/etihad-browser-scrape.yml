@@ -2,7 +2,7 @@ name: etihad-browser-scrape
 
 # Etihad Guest award scrape, run entirely in this repo (GH Actions / Azure IP clears Etihad's
 # Akamai + Imperva ABP where Fly's IP can't). Headful Chrome under xvfb. Writes Etihad rows into
-# MotherDuck `flights`. DOM-scraped from the public award deep-link
+# Postgres `flights`. DOM-scraped from the public award deep-link
 # (/book/search?...&FLOW=AWARD → /book/cart-new/upsell) — the availability JSON is not reachable
 # as a page/CDP fetch (see scrapers/etihad.py). (websockets pinned <15 — see requirements.)
 on:
@@ -46,7 +46,6 @@ jobs:
       - name: Scrape Etihad (headful Chrome under xvfb, Azure IP)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           ETIHAD_HEARTBEAT_URL: ${{ secrets.ETIHAD_HEARTBEAT_URL }}
           ETIHAD_SCRAPE_DAYS: "3"

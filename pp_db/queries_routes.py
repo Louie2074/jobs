@@ -1,7 +1,5 @@
-"""Ported query functions (Postgres / SQLAlchemy Core) — the routes-queue group of the DuckDB
-``db/queries.py``. Each function takes an explicit SQLAlchemy ``Connection`` as its first arg, then
-the original arguments. Behaviour must match the DuckDB original row-for-row (verified by the parity
-suite ``tests/test_parity_routes.py``).
+"""Postgres / SQLAlchemy Core query functions — the routes-queue group. Each function takes an
+explicit SQLAlchemy ``Connection`` as its first arg, then the call-specific arguments.
 
 Group: upsert_route, get_due_routes, get_route, bump_decayed_demand, record_scrape_outcome,
 reset_all_route_schedules, increment_search_count, set_route_tier, is_route_stale.
@@ -17,8 +15,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from pp_db.models import Flight, RoutesQueue
 
-# Column list returned by get_due_routes / get_route, in the original SELECT order. The aliased
-# ``*_utc`` columns are renamed to the bare key the DuckDB query used (AS last_scraped_at, etc.).
+# Column list returned by get_due_routes / get_route, in SELECT order. The aliased
+# ``*_utc`` columns are renamed to the bare key callers expect (AS last_scraped_at, etc.).
 _ROUTE_COLUMNS = [
     "origin",
     "dest",
@@ -81,7 +79,7 @@ def get_due_routes(
     stmt = select(*_ROUTE_SELECT_COLS).where(RoutesQueue.next_scrape_at_utc <= func.now())
     if airline:
         stmt = stmt.where(RoutesQueue.airline == airline)
-    # next_scrape_at_utc is NOT NULL, so ASC ordering needs no NULLS-clause to match DuckDB.
+    # next_scrape_at_utc is NOT NULL, so ASC ordering needs no NULLS-clause.
     stmt = stmt.order_by(tier_rank, RoutesQueue.next_scrape_at_utc.asc()).limit(limit)
 
     rows = conn.execute(stmt).all()
@@ -130,7 +128,7 @@ def bump_decayed_demand(
     stored = row[0] if row else 0.0
     last = row[1] if row else None
     # last_search_at_utc is stored naive (TIMESTAMP WITHOUT TIME ZONE); coerce to aware UTC so it's
-    # subtractable from the aware ``now`` in scoring.decay_demand. Mirrors the DuckDB original.
+    # subtractable from the aware ``now`` in scoring.decay_demand.
     if last is not None and last.tzinfo is None:
         last = last.replace(tzinfo=timezone.utc)
     new_val = scoring.bump_demand(stored, last, now, half_life_days)

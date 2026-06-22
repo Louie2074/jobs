@@ -1,10 +1,6 @@
-import os
+import pytest
 
-os.environ.setdefault("MOTHERDUCK_TOKEN", "test-dummy-token")
-
-import pytest  # noqa: E402
-
-from scrapers.delta import _brand_to_cabin  # noqa: E402 — env var must be set before import
+from scrapers.delta import _brand_to_cabin
 
 
 @pytest.mark.parametrize(

@@ -10,8 +10,8 @@ end-to-end check before (or after) wiring the DB cron. Unbuffered prints + a har
 watchdog keep logs intact past any nodriver teardown hang.
 
 The scraper import is deferred into the factory so it runs UNDER the watchdog — an import that
-hangs (settings gate, nodriver) still gets killed with logs intact. Imports need
-MOTHERDUCK_TOKEN (settings gate) — the workflows set a dummy; this never touches the DB.
+hangs (settings, nodriver) still gets killed with logs intact. The import loads settings only;
+this never touches the DB.
 """
 
 from __future__ import annotations

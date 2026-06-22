@@ -1,18 +1,16 @@
-"""Ported cash query functions (Postgres / SQLAlchemy) — the pp_db counterpart of the cash-group
-functions in the DuckDB ``db/queries.py``: ``upsert_cash_fare``, ``upsert_cash_fares``,
-``get_top_cash_routes`` and ``upsert_cash_coverage``.
+"""Postgres / SQLAlchemy query functions for cash fares: ``upsert_cash_fare``,
+``upsert_cash_fares``, ``get_top_cash_routes`` and ``upsert_cash_coverage``.
 
-Each function takes an explicit SQLAlchemy ``Connection`` as its first argument; behaviour must
-match the DuckDB original row-for-row (verified by ``tests/test_parity_cash.py``).
+Each function takes an explicit SQLAlchemy ``Connection`` as its first argument.
 
 Dialect notes:
   * Upserts use ``postgresql.insert(...).on_conflict_do_update`` on the table's natural key
     (``cash_fares`` = 6-col UNIQUE incl. flight_number; ``cash_coverage`` = 4-col PK incl. cabin).
-  * ``get_top_cash_routes`` is reproduced with ``text()`` to mirror the DuckDB CTE + correlated
-    ``NOT EXISTS`` subqueries exactly. DuckDB's ``current_date + <int>`` and
-    ``now() - (<num> * INTERVAL '1 hour')`` are both portable to Postgres with explicit casts.
+  * ``get_top_cash_routes`` is reproduced with ``text()`` for the CTE + correlated ``NOT EXISTS``
+    subqueries. ``current_date + <int>`` and ``now() - (<num> * INTERVAL '1 hour')`` use explicit
+    casts.
   * ``*_utc`` columns are naive TIMESTAMP; the engine pins the session to UTC so ``> now()``
-    comparisons line up with the DuckDB original (which also runs with ``TimeZone='UTC'``).
+    comparisons are correct.
 """
 
 from __future__ import annotations
@@ -45,8 +43,8 @@ def upsert_cash_fare(
 ) -> None:
     """Insert or update one cash fare (per-flight grain; shares flights' natural key).
 
-    Port of the DuckDB ``upsert_cash_fare`` — same ON CONFLICT target (the 6-col UNIQUE incl.
-    flight_number) and the same update set (cash_price/currency/source/scraped_at/expires_at).
+    ON CONFLICT on the 6-col UNIQUE (incl. flight_number), updating
+    cash_price/currency/source/scraped_at/expires_at.
     """
     stmt = pg_insert(CashFare).values(
         origin=origin,
@@ -84,8 +82,8 @@ def upsert_cash_fare(
 def upsert_cash_fares(conn: Connection, records: list[CashFareRecord]) -> int:
     """Batch insert/update cash fares on the natural key. Returns rows processed.
 
-    Port of the DuckDB ``upsert_cash_fares``: mirrors the single-row upsert's ON CONFLICT
-    behaviour, applied to a batch. Empty input is a no-op returning 0.
+    Applies the single-row upsert's ON CONFLICT behaviour to a batch. Empty input is a no-op
+    returning 0.
     """
     if not records:
         return 0
@@ -127,8 +125,8 @@ def upsert_cash_fares(conn: Connection, records: list[CashFareRecord]) -> int:
     return len(rows)
 
 
-# DuckDB original SQL, parameterised for Postgres. The pinned-route placeholders are spliced into
-# the IN-list and the ORDER BY uses the same pinned-first → demand DESC → date/origin/dest ASC rank.
+# SQL parameterised for Postgres. The pinned-route placeholders are spliced into the IN-list and
+# the ORDER BY uses a pinned-first → demand DESC → date/origin/dest ASC rank.
 _TOP_CASH_ROUTES_SQL = """
 WITH demand AS (
     SELECT origin, dest, SUM(decayed_demand) AS sc
@@ -173,7 +171,7 @@ def get_top_cash_routes(
     ttl_hours: int,
     cabins: tuple[str, ...] = ("economy",),
 ) -> list[tuple[str, str, date, str]]:
-    """Route/date/cabin units to scrape for cash — port of the DuckDB ``get_top_cash_routes``.
+    """Route/date/cabin units to scrape for cash.
 
     Distinct (origin, dest, date, cabin) that HAVE non-expired nonstop award rows in one of the
     enabled ``cabins`` within ``days_ahead`` days AND lack fresh cash (no cash_fares row within
@@ -218,11 +216,11 @@ def upsert_cash_coverage(
     fare_count: int,
     reprobe_days: int,
 ) -> None:
-    """Record a cash-scrape attempt for (route, date, cabin) — port of DuckDB ``upsert_cash_coverage``.
+    """Record a cash-scrape attempt for (route, date, cabin).
 
     A ZERO-yield attempt pushes ``next_probe_utc`` out by ``reprobe_days``; any fares make the unit
-    re-eligible immediately (``next_probe = now``). Origin/destination are upper-cased to match the
-    original. ON CONFLICT target is the 4-col PK (origin, destination, date, cabin).
+    re-eligible immediately (``next_probe = now``). Origin/destination are upper-cased.
+    ON CONFLICT target is the 4-col PK (origin, destination, date, cabin).
     """
     now = datetime.now(timezone.utc)
     next_probe = now + timedelta(days=reprobe_days) if fare_count == 0 else now

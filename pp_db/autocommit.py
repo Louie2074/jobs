@@ -1,18 +1,15 @@
-"""``db.queries``-compatible facade for the SYNC script consumers (scraper, jobs).
+"""Conn-free ``queries`` facade for the SYNC script consumers (scraper, jobs).
 
-The DuckDB ``db/queries.py`` functions acquired a thread-local connection internally and ran
-each statement in DuckDB's default autocommit mode, so callers invoked them with NO connection
-arg (``db.upsert_flights(records)``). The ``pp_db.queries`` ports instead take an explicit
-``Connection`` first arg (Core idiom — testable, transaction-controllable).
+The ``pp_db.queries`` functions take an explicit ``Connection`` first arg (Core idiom — testable,
+transaction-controllable). The sync script consumers, however, want to call them with NO connection
+arg (``db.upsert_flights(records)``).
 
-This module bridges the two: it re-exports every ``pp_db.queries`` function with the ORIGINAL
-conn-free signature, injecting a thread-local SQLAlchemy connection put in **AUTOCOMMIT**
-isolation (each statement commits on its own — same semantics the DuckDB callers relied on).
-So a sync consumer migrates by changing only its import:
+This module bridges the two: it re-exports every ``pp_db.queries`` function with a conn-free
+signature, injecting a thread-local SQLAlchemy connection put in **AUTOCOMMIT** isolation (each
+statement commits on its own). So a sync consumer just imports this module:
 
-    # before:  from db import queries as db
-    # after:   from pp_db import autocommit as db
-    db.upsert_flights(records)          # unchanged call sites
+    from pp_db import autocommit as db
+    db.upsert_flights(records)          # no connection arg needed
 
 The async API service does NOT use this — it uses ``api/pp.py`` (run/run_write over to_thread)
 so reads and writes get explicit, pool-friendly connection scoping. Thread-local fits the sync
@@ -32,9 +29,9 @@ _local = threading.local()
 
 
 def _autocommit_engine():
-    """The shared sync engine, set to AUTOCOMMIT isolation (each statement commits on its own —
-    the DuckDB default the sync callers relied on). ``execution_options`` on an Engine returns a
-    lightweight shared-pool variant, so this reuses the same connection pool as ``get_engine()``."""
+    """The shared sync engine, set to AUTOCOMMIT isolation (each statement commits on its own).
+    ``execution_options`` on an Engine returns a lightweight shared-pool variant, so this reuses
+    the same connection pool as ``get_engine()``."""
     return get_engine().execution_options(isolation_level="AUTOCOMMIT")
 
 
@@ -48,7 +45,7 @@ def _conn():
 
 
 def close_connection() -> None:
-    """Drop in for the DuckDB ``db.connection.close_connection`` — close this thread's conn."""
+    """Close this thread's connection (drop-in for ``db.connection.close_connection``)."""
     c = getattr(_local, "conn", None)
     if c is not None and not c.closed:
         c.close()

@@ -32,7 +32,6 @@ jobs:
         run: python alaska_scrape.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           ALASKA_HEARTBEAT_URL: ${{ secrets.ALASKA_HEARTBEAT_URL }}
           ALASKA_SHARDS: "2"

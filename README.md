@@ -14,8 +14,8 @@ database (the `pp` schema) through the vendored **`pp_db`** data layer (`DATABAS
 | `southwest_browser_scrape.py` | `southwest-browser-scrape.yml` | daily 09:00 UTC + on-demand dispatch | `nodriver` browser scrape of Southwest Rapid Rewards award space (Azure runner IP mints the F5/Shape sensor) → `pp.flights`. |
 | `turkish_browser_scrape.py` | `turkish-browser-scrape.yml` | daily 10:00 UTC + on-demand dispatch | `nodriver` browser scrape of Turkish Miles&Smiles award space, US↔IST (Azure runner IP clears the TLS-fingerprint block + PerimeterX) → `pp.flights`. |
 | `etihad_browser_scrape.py` | `etihad-browser-scrape.yml` | daily 11:00 UTC + on-demand dispatch | `nodriver` DOM scrape of Etihad Guest award space, US↔AUH (Azure runner IP clears Akamai + Imperva ABP) → `pp.flights`. |
-| `turkish_validate.py` | `turkish-validate.yml` | dispatch-only (no schedule) | Onboarding/regression check: runs the Turkish scraper against a few US↔IST routes under `xvfb` on the Azure IP and prints the records. No DB write (dummy token). |
-| `etihad_validate.py` | `etihad-validate.yml` | dispatch-only (no schedule) | Onboarding/regression check: runs the Etihad scraper against a couple of US↔AUH routes under `xvfb` on the Azure IP and prints the records. No DB write (dummy token). |
+| `turkish_validate.py` | `turkish-validate.yml` | dispatch-only (no schedule) | Onboarding/regression check: runs the Turkish scraper against a few US↔IST routes under `xvfb` on the Azure IP and prints the records. No DB write. |
+| `etihad_validate.py` | `etihad-validate.yml` | dispatch-only (no schedule) | Onboarding/regression check: runs the Etihad scraper against a couple of US↔AUH routes under `xvfb` on the Azure IP and prints the records. No DB write. |
 
 `obs.py` is the shared Better Stack shipper used by the transfer jobs; the browser
 scrapers use the vendored `pipeline/obs.py`. `conftest.py` holds shared pytest fixtures.
@@ -52,9 +52,8 @@ CAPTCHA; the recon notes live in the agent memory, not this repo.)
 ### Stale-row retention (now Supabase pg_cron)
 
 Deleting every flight/cash_fare row older than yesterday (UTC) used to be the daily
-`cleanup_flights.py` GitHub-Action. After the MotherDuck → Supabase Postgres cutover this
-retention runs **inside the database** as a Supabase **pg_cron** job (`pp-retention`), so there's
-no longer a script or workflow for it in this repo.
+`cleanup_flights.py` GitHub-Action. This retention now runs **inside the database** as a Supabase
+**pg_cron** job (`pp-retention`), so there's no longer a script or workflow for it in this repo.
 
 ### `transfer_bonuses.py`
 
@@ -111,11 +110,6 @@ Optional `TRANSFER_PARTNERS_HEARTBEAT_URL` pings on a successful real run.
    export DATABASE_URL=postgresql://user:pw@aws-1-us-west-2.pooler.supabase.com:6543/postgres
    ```
 
-`MOTHERDUCK_TOKEN` is now **rollback-only**: the old `db/` DuckDB layer is retained as the cutover
-rollback path (flip `DATABASE_URL` back out + redeploy reverts to MotherDuck) until MotherDuck is
-decommissioned. The hermetic test suite still wants `MOTHERDUCK_TOKEN=dummy` to satisfy an
-import-time settings gate; it hits no real DB.
-
 ### GitHub Actions
 
 Add these as repository secrets (Settings → Secrets and variables → Actions):
@@ -123,7 +117,6 @@ Add these as repository secrets (Settings → Secrets and variables → Actions)
 | Secret | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | yes | Supabase Postgres connection string (Supavisor transaction pooler, port 6543) — `pp_db.engine` reads it |
-| `MOTHERDUCK_TOKEN` | rollback-only | MotherDuck access for the retained DuckDB rollback layer (`duckdb` reads it automatically); the `*-validate.yml` jobs set a dummy value for the import-time settings gate |
 | `BETTERSTACK_SOURCE_TOKEN` | no | Enables the completion metric + log shipping; reuse the scraper's source token |
 | `BONUSES_HEARTBEAT_URL` | no | Better Stack heartbeat for the transfer-bonuses run |
 | `TRANSFER_PARTNERS_HEARTBEAT_URL` | no | Better Stack heartbeat for the transfer-partners run |

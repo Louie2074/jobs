@@ -1,18 +1,15 @@
-"""Ported reporting/coverage query functions (Postgres / SQLAlchemy Core) — the pp_db counterpart
-of the DuckDB ``db/queries.py`` coverage helpers (``route_coverage``, ``cabin_distribution``).
+"""Reporting/coverage query functions (Postgres / SQLAlchemy Core) — the coverage helpers
+(``route_coverage``, ``cabin_distribution``).
 
 These are read-only observability queries that power ``check_coverage.py``. Each function takes an
-explicit SQLAlchemy ``Connection`` as its first argument; behaviour must match the DuckDB original
-row-for-row (verified by the parity suite in ``tests/test_parity_reporting.py``).
+explicit SQLAlchemy ``Connection`` as its first argument.
 
 Dialect notes:
-  * ``string_agg(DISTINCT cabin_class, ',')`` — DuckDB leaves the concatenation order unspecified;
-    Postgres requires an explicit ``ORDER BY`` when ``DISTINCT`` is present. We add
-    ``ORDER BY cabin_class`` so the port is deterministic. The parity tests therefore compare the
-    ``cabin_list`` field as a *set* of comma-split values rather than as an ordered string.
+  * ``string_agg(DISTINCT cabin_class, ',')`` — Postgres requires an explicit ``ORDER BY`` when
+    ``DISTINCT`` is present, so we add ``ORDER BY cabin_class`` to keep ``cabin_list`` stable.
   * ``count(DISTINCT origin || '-' || destination)`` — string concatenation via ``func.concat`` /
-    the SQL ``||`` operator is portable; both engines treat it identically here (no NULL routes).
-  * ``f.date >= current_date`` — ``current_date`` is portable; rendered via ``func.current_date()``.
+    the SQL ``||`` operator (no NULL routes here).
+  * ``f.date >= current_date`` — rendered via ``func.current_date()``.
 """
 
 from __future__ import annotations
@@ -32,7 +29,7 @@ def route_coverage(conn: Connection, source: str | None = "alaska") -> list[dict
     Ordered fewest-rows-first (then HIGH→MED→LOW tier). ``source`` filters the joined flights
     (None = all sources); routes_queue itself is not source-tagged so all routes are listed.
 
-    Port of the DuckDB original. The source filter lives in the LEFT JOIN's ON clause (not WHERE),
+    The source filter lives in the LEFT JOIN's ON clause (not WHERE),
     so a route with no matching-source flights still surfaces with zero counts.
     """
     # Tier rank used for both ORDER BY here and in get_due_routes: HIGH→1, MED→2, else→3.
@@ -42,8 +39,8 @@ def route_coverage(conn: Connection, source: str | None = "alaska") -> list[dict
         else_=3,
     )
 
-    # cabin_list: string_agg(DISTINCT cabin_class, ',') — matches the DuckDB original verbatim
-    # (concatenation order unspecified on both engines; the parity test compares as a set).
+    # cabin_list: string_agg(DISTINCT cabin_class, ',') — concatenation order is unspecified, so
+    # treat the comma-split result as a set, not an ordered string.
     cabin_list = func.string_agg(distinct(Flight.cabin_class), ",")
 
     # LEFT JOIN ON: route match + future-dated; source filter (when given) also rides the ON clause
@@ -110,7 +107,7 @@ def cabin_distribution(conn: Connection, source: str | None = "alaska") -> list[
     """Row / route / date counts per cabin across future-dated flights — a cabin that's suddenly
     absent points at a CABIN_MAP miss or a points<=0 drop.
 
-    Port of the DuckDB original. ``routes`` counts DISTINCT ``origin || '-' || destination`` pairs.
+    ``routes`` counts DISTINCT ``origin || '-' || destination`` pairs.
     """
     filters = [Flight.date >= func.current_date()]
     if source is not None:

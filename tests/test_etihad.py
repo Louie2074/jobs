@@ -1,9 +1,6 @@
-import os
 from datetime import date
 
-os.environ.setdefault("MOTHERDUCK_TOKEN", "test-dummy-token")
-
-from scrapers.etihad import (  # noqa: E402 — env var must be set before this import
+from scrapers.etihad import (
     EtihadScraper,
     _carrier,
     _day_offset,

@@ -4,10 +4,9 @@ parse_bonuses: pure HTML → list[dict], tested with a minimal fixture that mirr
 the travel-on-points.com table structure (4 cols: Point Program, Bonus Rate,
 Airline / Hotel Program, End Date). No network/DB — always runs.
 
-reconcile: snapshot-replace logic, now against the real ``pp`` Postgres container (the
-MotherDuck→Supabase cutover ported ``reconcile`` from DuckDB to a SQLAlchemy Connection on
-``pp.transfer_bonuses``). Those tests skip if ``DATABASE_URL`` is unset and run inside a
-rolled-back transaction so they leave the table untouched.
+reconcile: snapshot-replace logic against the real ``pp`` Postgres container (``reconcile`` runs on
+a SQLAlchemy Connection on ``pp.transfer_bonuses``). Those tests skip if ``DATABASE_URL`` is unset
+and run inside a rolled-back transaction so they leave the table untouched.
 """
 
 from __future__ import annotations
@@ -134,7 +133,7 @@ def test_parse_no_table_raises():
 
 
 # ---------------------------------------------------------------------------
-# reconcile tests — in-memory DuckDB, no MotherDuck needed
+# reconcile tests — real ``pp`` Postgres container (skip if DATABASE_URL is unset)
 # ---------------------------------------------------------------------------
 
 

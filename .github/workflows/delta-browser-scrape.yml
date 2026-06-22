@@ -1,10 +1,10 @@
 name: delta-browser-scrape
 
 # Delta browser scrape, run entirely within this repo (GH Actions / Azure IP clears Delta's
-# Akamai edge block — HTTP 200 — where Fly's IP gets 444). The scrapers/ config/ db/ pipeline/
+# Akamai edge block — HTTP 200 — where Fly's IP gets 444). The scrapers/ config/ pp_db/ pipeline/
 # packages are VENDORED from points-pilot-scrapers (see VENDORED_DELTA.md), so no cross-repo
 # checkout / PAT is needed. Headful Chrome under xvfb (Akamai challenges headless). Writes Delta
-# rows into MotherDuck `flights`.
+# rows into Postgres `flights`.
 on:
   workflow_dispatch:
     inputs:
@@ -50,7 +50,6 @@ jobs:
       - name: Scrape Delta (headful Chrome under xvfb, Azure IP)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           DELTA_HEARTBEAT_URL: ${{ secrets.DELTA_HEARTBEAT_URL }}
           DELTA_SCRAPE_DAYS: "30"

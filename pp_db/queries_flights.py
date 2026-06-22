@@ -1,18 +1,15 @@
-"""Ported flight-table query functions (Postgres / SQLAlchemy) — the pp_db counterpart of the
-DuckDB ``db/queries.py`` "Flights" section. Covers ``upsert_flights``, ``get_flights`` and
-``get_fresh_scrape_dates``.
+"""Flight-table query functions (Postgres / SQLAlchemy) — the "Flights" section. Covers
+``upsert_flights``, ``get_flights`` and ``get_fresh_scrape_dates``.
 
-Each function takes an explicit SQLAlchemy ``Connection`` as its first arg. Behaviour matches the
-DuckDB original row-for-row (verified by ``tests/test_parity_flights.py``):
+Each function takes an explicit SQLAlchemy ``Connection`` as its first arg.
 
   * ``upsert_flights`` — batch INSERT … ON CONFLICT on the 6-col natural key
     (origin, destination, date, airline, cabin_class, raw_flight_number); the conflict UPDATE set
-    is the exact column list the DuckDB ``_UPSERT_FLIGHT`` updates (route/date/cabin/flight-number
-    are the key, so they are *not* in the SET — same as the original). The ``raw_flight_number or
-    "UNKNOWN"`` sentinel is preserved.
+    updates everything except the natural key (route/date/cabin/flight-number are the key, so they
+    are *not* in the SET). The ``raw_flight_number or "UNKNOWN"`` sentinel is preserved.
   * ``get_flights`` — route+date-range read with a non-expired ``cash_fares`` LEFT JOIN and the
     derived ``cpp`` (``round(cash_price / points_cost * 100, 2)``). Reproduced via ``text()`` so the
-    join/CASE/round and the ``ORDER BY date ASC, points_cost ASC`` + ``LIMIT`` are byte-faithful.
+    join/CASE/round and the ``ORDER BY date ASC, points_cost ASC`` + ``LIMIT`` are explicit.
   * ``get_fresh_scrape_dates`` — DISTINCT dates with a still-fresh scrape, optionally scoped to one
     ``source``.
 """
@@ -34,9 +31,8 @@ except Exception:  # pragma: no cover
     FlightRecord = Any  # type: ignore[assignment,misc]
 
 
-# Columns updated on conflict — the exact set the DuckDB _UPSERT_FLIGHT touches. The six natural-key
-# columns (origin, destination, date, airline, cabin_class, raw_flight_number) plus ``program`` are
-# intentionally NOT updated (program is omitted in the original too).
+# Columns updated on conflict. The six natural-key columns (origin, destination, date, airline,
+# cabin_class, raw_flight_number) plus ``program`` are intentionally NOT updated.
 _UPDATE_COLS = (
     "source",
     "points_cost",
@@ -62,9 +58,8 @@ _UPDATE_COLS = (
 def upsert_flights(conn: Connection, records: list[FlightRecord]) -> int:
     """Insert or update a batch of FlightRecord objects. Returns the number processed.
 
-    Mirrors the DuckDB ``executemany(_UPSERT_FLIGHT, …)``: ON CONFLICT on the 6-col UNIQUE
-    natural key, updating the same non-key columns the original does. ``raw_flight_number or
-    "UNKNOWN"`` keeps the non-NULL sentinel the UNIQUE constraint relies on.
+    Batch upsert: ON CONFLICT on the 6-col UNIQUE natural key, updating the non-key columns.
+    ``raw_flight_number or "UNKNOWN"`` keeps the non-NULL sentinel the UNIQUE constraint relies on.
     """
     if not records:
         return 0
@@ -117,7 +112,7 @@ def upsert_flights(conn: Connection, records: list[FlightRecord]) -> int:
     return len(rows)
 
 
-# Column order returned by get_flights — identical to the DuckDB original.
+# Column order returned by get_flights.
 _GET_FLIGHTS_COLUMNS = [
     "id",
     "origin",
@@ -166,7 +161,7 @@ def get_flights(
 ) -> list[dict[str, Any]]:
     """Query available flights for a route + date range.
 
-    Faithful port of the DuckDB ``get_flights``: a non-expired ``cash_fares`` LEFT JOIN on the
+    A non-expired ``cash_fares`` LEFT JOIN on the
     flight's natural key, the derived ``cpp`` (``round(cash_price / points_cost * 100, 2)`` when
     cash exists and points_cost > 0), the same optional filters, ``ORDER BY date ASC, points_cost
     ASC`` and ``LIMIT``. ``fresh_only`` filters on ``date >= current_date`` only (expires_at is NOT
@@ -225,9 +220,9 @@ def get_flights(
             f.is_saver, f.fare_class, f.layover_airports, f.layover_duration_minutes,
             f.next_day_arrival, f.mixed_cabin,
             COALESCE(c.cash_price, CASE WHEN f.stops > 0 THEN cod.cash_price END) AS cash_price,
-            -- DuckDB's round(DECIMAL, 2) returns a DOUBLE; Postgres' round(numeric, 2) returns
-            -- NUMERIC. Cast to float8 so the driver yields a Python float, matching DuckDB's cpp
-            -- type exactly (Decimal('0.41') != 0.41, so an uncast NUMERIC would break parity).
+            -- Postgres' round(numeric, 2) returns NUMERIC. Cast to float8 so the driver yields a
+            -- Python float for cpp (callers expect a float; an uncast NUMERIC would yield
+            -- Decimal('0.41') != 0.41).
             CASE
               WHEN f.stops = 0 AND c.cash_price IS NOT NULL AND f.points_cost > 0
                    THEN round(c.cash_price / f.points_cost * 100, 2)::float8
@@ -264,7 +259,7 @@ def get_fresh_scrape_dates(
     """Return the set of flight dates with at least one non-expired (expires_at > now()) row.
 
     Optionally scoped to one ``source`` (scraper slug) so a different airline's coverage of the same
-    route doesn't suppress this one's scrape. Faithful port of the DuckDB DISTINCT-date query.
+    route doesn't suppress this one's scrape.
     """
     stmt = (
         select(Flight.date)

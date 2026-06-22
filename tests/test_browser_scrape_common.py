@@ -3,10 +3,10 @@
 The legacy on-demand path (`run_scrape(..., route_jobs=None)`) is exercised by the per-airline
 `_build_plan`/`_parse_dates_csv` tests; these focus on the new queue-aware path.
 
-After the MotherDuck→Supabase cutover, `run_scrape` upserts flights and closes connections through
-the `pp_db.autocommit` facade and `build_queue_plan`→`QueueManager` reads `pp.routes_queue` from
-Postgres, so these drive the real `pp` container. Seeding goes through the facade (the path the code
-under test uses) and a couple of raw UPDATEs force routes due. Skips if `DATABASE_URL` is unset.
+`run_scrape` upserts flights and closes connections through the `pp_db.autocommit` facade, and
+`build_queue_plan`→`QueueManager` reads `pp.routes_queue` from Postgres, so these drive the real
+`pp` container. Seeding goes through the facade (the path the code under test uses) and a couple of
+raw UPDATEs force routes due. Skips if `DATABASE_URL` is unset.
 """
 
 import logging

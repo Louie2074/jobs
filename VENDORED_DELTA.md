@@ -1,6 +1,6 @@
 # Vendored browser scrapers (Delta / Southwest / Turkish / Etihad)
 
-`scrapers/`, `config/`, `db/`, `pipeline/` here let this repo run the nodriver Delta,
+`scrapers/`, `config/`, `pp_db/`, `pipeline/` here let this repo run the nodriver Delta,
 Southwest, Turkish, and Etihad browser scrapes **self-contained** (GH Actions Azure IP clears
 Akamai / Imperva / mints the F5/Shape sensor where Fly's IP gets blocked), with no cross-repo
 checkout / PAT.
@@ -12,9 +12,7 @@ Entry points: `delta_browser_scrape.py`, `southwest_browser_scrape.py`,
 
 **Data layer:** scrape rows are written to **Supabase Postgres** (`pp.flights`) through the
 vendored **`pp_db`** package (see `pp_db/VENDORED.md`) — the sync entry points use its
-`autocommit` facade. The `db/{connection,queries,schema}.py` DuckDB layer is **still vendored but
-rollback-only** (retained until MotherDuck is decommissioned post-cutover); don't write new code
-against it.
+`autocommit` facade.
 
 `config/airport_tz.py` (copy of the scraper repo's) maps airport → IANA tz so `delta.py`
 stores tz-aware local departure/arrival times (a naive value would land in the TIMESTAMPTZ
@@ -28,7 +26,7 @@ Alaska/JetBlue + Google Flights scrapers. Re-sync if it changes upstream.
 **`scrapers/browser.py`, `scrapers/delta.py`, `scrapers/southwest.py`, `scrapers/turkish.py`, and
 `scrapers/etihad.py` are CANONICAL HERE** — the Delta, Southwest, Turkish, and Etihad browser
 scrapers are maintained in this repo (the scraper repo no longer carries these).
-The other files (`base.py`, `config/settings.py`, `db/*`, `pipeline/normalizer.py`) are copies of
+The other files (`base.py`, `config/settings.py`, `pp_db/*`, `pipeline/normalizer.py`) are copies of
 **points-pilot-scrapers** shared modules — those stay canonical in the scraper repo (Alaska/JetBlue
 use them), so re-sync them here if they change upstream. Editing the shared copies without
 propagating is the footgun.

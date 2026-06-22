@@ -4,10 +4,9 @@ parse_partners: pure HTML → list[dict], tested with a fixture mirroring the
 thriftytraveler.com structure (per-bank heading + table: Program | Type |
 Transfer Ratio | Transfer Time). No network/DB — always runs.
 
-reconcile: full-table snapshot-replace, now against the real ``pp`` Postgres container (the
-MotherDuck→Supabase cutover ported ``reconcile`` from DuckDB to a SQLAlchemy Connection on
-``pp.transfer_partners``). Those tests skip if ``DATABASE_URL`` is unset and run inside a
-rolled-back transaction so they leave the table untouched.
+reconcile: full-table snapshot-replace against the real ``pp`` Postgres container (``reconcile``
+runs on a SQLAlchemy Connection on ``pp.transfer_partners``). Those tests skip if ``DATABASE_URL``
+is unset and run inside a rolled-back transaction so they leave the table untouched.
 """
 
 from __future__ import annotations
