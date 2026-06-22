@@ -273,6 +273,30 @@ def _find_chrome() -> str:
     )
 
 
+async def _connect_browser(port: int, attempts: int = 12, delay_s: float = 1.0):
+    """Connect to the manually-launched Chrome's CDP endpoint, retrying while it
+    finishes binding the debug port.
+
+    On a cold CI runner Chrome can take a variable time to start listening, so a
+    single ``uc.start()`` after a fixed sleep races that startup and intermittently
+    raises "Failed to connect to browser" (observed in GH-Actions run 27932810187).
+    Retrying the connect for up to ~``attempts * delay_s`` seconds removes that flake;
+    the happy path connects on the first attempt with no added latency. Mirrors the
+    same helper in ``transfer_partners.py``.
+    """
+    last_exc: Exception | None = None
+    for i in range(attempts):
+        try:
+            return await uc.start(host="127.0.0.1", port=port)
+        except Exception as exc:  # noqa: BLE001 — retry transient startup races
+            last_exc = exc
+            logger.debug("browser connect attempt %d/%d failed: %s", i + 1, attempts, exc)
+            await asyncio.sleep(delay_s)
+    raise RuntimeError(
+        f"could not connect to Chrome on port {port} after {attempts} attempts"
+    ) from last_exc
+
+
 async def _fetch_with_nodriver(url: str, wait_secs: int = 5) -> str:
     """Fetch *url* using a headless Chrome CDP session (WAF bypass).
 
@@ -296,9 +320,9 @@ async def _fetch_with_nodriver(url: str, wait_secs: int = 5) -> str:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    time.sleep(3)  # wait for Chrome to bind the debug port
+    time.sleep(2)  # give Chrome a head start before the first connect attempt
     try:
-        browser = await uc.start(host="127.0.0.1", port=port)
+        browser = await _connect_browser(port)
         page = await browser.get(url)
         await asyncio.sleep(wait_secs)  # allow JS/redirect to settle
         html = await page.get_content()
