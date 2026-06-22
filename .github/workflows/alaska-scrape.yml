@@ -1,0 +1,39 @@
+name: Alaska award scrape
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 3×/day, offset to :17 and clear of the 08–11 UTC award-browser block, to keep the
+    # 24h MED TTL fresh with margin (best-effort cron + the API on-demand backstop).
+    - cron: "17 1,13,19 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alaska-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: scrape
+        run: python alaska_scrape.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+          BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
+          ALASKA_HEARTBEAT_URL: ${{ secrets.ALASKA_HEARTBEAT_URL }}
+          ALASKA_SHARDS: "2"
+          ALASKA_SHARD_INDEX: ${{ matrix.shard }}
