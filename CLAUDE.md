@@ -1,8 +1,7 @@
 # points-pilot-jobs — agent guide
 
 Scheduled GitHub Actions jobs for point_pilot. Two kinds of job, all writing to the shared
-**Supabase Postgres** DB (the `pp` schema) via the vendored **`pp_db`** data layer
-(`DATABASE_URL`; the MotherDuck→Postgres cutover is live in production):
+**Supabase Postgres** DB (the `pp` schema) via the vendored **`pp_db`** data layer (`DATABASE_URL`):
 
 1. **Maintenance** — `transfer_bonuses.py` + `transfer_partners.py` (scrape bank/airline transfer
    data, snapshot-replace tables). (Stale-flight retention is now a Supabase pg_cron job,
@@ -17,14 +16,14 @@ Start with `README.md` for the job catalogue + schedules. This file is the worki
 
 | Task | Command |
 |---|---|
-| Tests | `MOTHERDUCK_TOKEN=dummy pytest tests/ -q` (import-time settings gate still needs the var; hermetic tests hit no real DB. Container/integration tests want a live `DATABASE_URL`) |
+| Tests | `pytest tests/ -q` (hermetic tests hit no real DB. Container/integration tests want a live `DATABASE_URL`) |
 | Lint | `ruff check .` (`pp_db/` is excluded) |
 | Run a maintenance job | `DATABASE_URL=… python transfer_partners.py --dry-run` (or `transfer_bonuses.py`) |
-| Validate an award scraper (no DB) | `MOTHERDUCK_TOKEN=dummy python turkish_validate.py` / `etihad_validate.py` (or dispatch `*-validate.yml`) |
+| Validate an award scraper (no DB) | `python turkish_validate.py` / `etihad_validate.py` (or dispatch `*-validate.yml`) |
 | Run an award scrape on-demand | dispatch `<airline>-browser-scrape.yml` with `origin`/`destination`/`dates` inputs |
 
 The local shell may print `blake2`/`hashlib` errors from the pyenv 3.11.1 Python — they're benign
-noise; tests still run. CI uses Python 3.11 with `MOTHERDUCK_TOKEN=dummy`.
+noise; tests still run. CI uses Python 3.11.
 
 ## Layout
 
@@ -38,7 +37,7 @@ noise; tests still run. CI uses Python 3.11 with `MOTHERDUCK_TOKEN=dummy`.
   copy it per airline.
 - `scrapers/` — `base.py` (`FlightRecord` + `BaseScraper` + `ScraperBlockedError`), `browser.py`
   (`BrowserScraper`: spawns Chrome, warms a page, runs an in-page `fetch`/DOM-read), and one module
-  per airline. `browser.py` + `config/` + `db/` + `pipeline/` are **vendored from
+  per airline. `browser.py` + `config/` + `pp_db/` + `pipeline/` are **vendored from
   `points-pilot-scrapers`** — fix there first, then propagate (see `VENDORED_DELTA.md`).
 - `pp_db/` — the **Supabase Postgres data layer** (SQLAlchemy 2.0 Core), **vendored runtime subset
   from the scraper repo** (see `pp_db/VENDORED.md`): `models.py`, `engine.py` (connects to the
@@ -46,11 +45,9 @@ noise; tests still run. CI uses Python 3.11 with `MOTHERDUCK_TOKEN=dummy`.
   `airport_tz.py`, the `queries*` ports, and the **`autocommit` facade**. The sync consumers here
   (browser scrapers via `browser_scrape_common`, `pipeline/queue_manager`, and the transfer jobs)
   call it through `from pp_db import autocommit as db`, which re-exports every conn-first query
-  with the original conn-free signature on a thread-local AUTOCOMMIT connection (so call sites are
-  unchanged from the old DuckDB `db.queries`). Its `migrate()` is a **no-op** (the `pp` schema is
-  Alembic-managed in the canonical package, not at app startup). The old `db/` DuckDB layer is
-  **retained as a rollback path** (to be removed once MotherDuck is decommissioned) — don't build
-  on it.
+  with the original conn-free signature on a thread-local AUTOCOMMIT connection (so call sites stay
+  conn-free). Its `migrate()` is a **no-op** (the `pp` schema is Alembic-managed in the canonical
+  package, not at app startup).
 - `config/airport_tz.py` — IATA→IANA timezone map. **A new ORIGIN airport must be added here** or
   the scraper drops its local departure times (foreign destinations may stay unmapped — the time is
   just dropped, not fatal).

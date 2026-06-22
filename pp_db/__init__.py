@@ -1,8 +1,8 @@
 """pp_db — shared Postgres data layer (SQLAlchemy 2.0) for the point_pilot services.
 
-Replaces the vendored DuckDB ``db/`` across api / scraper / jobs. Import models from
-``pp_db.models`` and engines/sessions from ``pp_db.engine``. Query functions (porting
-``db/queries.py``) land in ``pp_db.queries`` next.
+The shared ``db/`` package across api / scraper / jobs. Import models from
+``pp_db.models``, engines/sessions from ``pp_db.engine`` and query functions from
+``pp_db.queries``.
 """
 
 from pp_db import models

@@ -1,7 +1,5 @@
-"""Ported query functions (Postgres / SQLAlchemy Core) — the api-only "checks" group of the DuckDB
-``db/queries.py``. Each function takes an explicit SQLAlchemy ``Connection`` as its first arg, then
-the original arguments. Behaviour must match the DuckDB original row-for-row (verified by the parity
-suite ``tests/test_parity_api_checks.py``).
+"""Postgres / SQLAlchemy Core query functions — the api-only "checks" group. Each function takes
+an explicit SQLAlchemy ``Connection`` as its first arg, then the call-specific arguments.
 
 Group: has_any_flights, is_window_stale, mark_route_scraped.
 
@@ -29,8 +27,8 @@ def has_any_flights(
     conn: Connection, origin: str, destination: str, airline: str
 ) -> bool:
     """True if the route has EVER produced flight rows for this program airline (ignores expiry). The
-    positive 'serves this route' signal for dispatch airlines. Inputs are upper-cased to match the
-    DuckDB original (``origin.upper()`` / ``destination.upper()`` / ``airline.upper()``)."""
+    positive 'serves this route' signal for dispatch airlines. Inputs are upper-cased
+    (``origin.upper()`` / ``destination.upper()`` / ``airline.upper()``)."""
     stmt = (
         select(1)
         .where(
@@ -80,10 +78,9 @@ def mark_route_scraped(
     """Update a route after a successful scrape (per airline). Sets last_scraped_at = now(),
     next_scrape_at = now() + ttl_hours. Bare UPDATE — no-ops on a missing route.
 
-    DuckDB used ``now() + (? * INTERVAL '1 hour')``; the portable Postgres equivalent is
-    ``now() + make_interval(hours => :ttl_hours)`` (``ttl_hours`` is an int, so a make_interval
-    arg avoids the DuckDB-only ``int * INTERVAL`` multiply). ``tier`` is accepted for signature
-    parity with the original but, as in DuckDB, is not written by this UPDATE."""
+    The TTL offset uses ``now() + make_interval(hours => :ttl_hours)`` (``ttl_hours`` is an int, so
+    make_interval reads cleanly). ``tier`` is accepted for signature compatibility but is not
+    written by this UPDATE."""
     conn.execute(
         update(RoutesQueue)
         .where(

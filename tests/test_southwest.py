@@ -1,11 +1,8 @@
 import json
-import os
 from datetime import date, datetime
 from pathlib import Path
 
-os.environ.setdefault("MOTHERDUCK_TOKEN", "test-dummy-token")
-
-from scrapers.southwest import (  # noqa: E402 — env var must be set before this import
+from scrapers.southwest import (
     SouthwestScraper,
     _build_request_body,
     _cheapest_available,

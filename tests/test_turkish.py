@@ -1,9 +1,6 @@
-import os
 from datetime import date
 
-os.environ.setdefault("MOTHERDUCK_TOKEN", "test-dummy-token")
-
-from scrapers.turkish import (  # noqa: E402 — env var must be set before this import
+from scrapers.turkish import (
     TurkishScraper,
     _cabin_miles,
     _flight_number,

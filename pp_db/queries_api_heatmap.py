@@ -1,21 +1,20 @@
-"""Ported API-only read queries (Postgres / SQLAlchemy) — the pp_db counterpart of two
-api-repo helpers in the DuckDB ``db/queries.py``: ``get_heatmap`` and ``get_cash_fares``.
+"""API-only read queries (Postgres / SQLAlchemy) — two helpers: ``get_heatmap`` and
+``get_cash_fares``.
 
 Both are read-only and live only in the API copy (the flexible-date heatmap + the cash-fare
-lookup that feeds CPP). Each takes an explicit SQLAlchemy ``Connection`` as its first arg and must
-match the DuckDB original row-for-row (verified by ``tests/test_parity_api_heatmap.py``).
+lookup that feeds CPP). Each takes an explicit SQLAlchemy ``Connection`` as its first arg.
 
 Dialect notes:
-  * Reproduced with ``text()`` so the GROUP BY / aggregate / ORDER BY / LIMIT are byte-faithful to
-    the DuckDB SQL. Tables live in schema ``pp``.
-  * ``current_date`` and ``now()`` are portable; both functions filter on the real session clock
+  * Reproduced with ``text()`` so the GROUP BY / aggregate / ORDER BY / LIMIT are explicit.
+    Tables live in schema ``pp``.
+  * ``current_date`` and ``now()`` filter on the real session clock
     (``f.date >= current_date`` and, for cash, ``expires_at_utc > now()``).
   * NO float/round expression in either query — ``get_heatmap`` aggregates the INTEGER
-    ``points_cost`` (MIN) and a COUNT (both yield Python ``int`` on each driver), and
-    ``get_cash_fares`` selects the NUMERIC ``cash_price`` column verbatim (Decimal on both drivers).
-    So there is no ``::float8`` keystone cast to apply here (unlike ``get_flights``' ``cpp``).
-  * ``*_utc`` columns are naive TIMESTAMP; the engine pins the session to UTC so ``> now()`` lines
-    up with the DuckDB original (which runs with ``TimeZone='UTC'``).
+    ``points_cost`` (MIN) and a COUNT (both yield Python ``int``), and ``get_cash_fares``
+    selects the NUMERIC ``cash_price`` column verbatim (Decimal). So there is no ``::float8``
+    keystone cast to apply here (unlike ``get_flights``' ``cpp``).
+  * ``*_utc`` columns are naive TIMESTAMP; the engine pins the session to UTC so ``> now()``
+    compares correctly.
 """
 
 from __future__ import annotations
@@ -40,7 +39,7 @@ def get_heatmap(
 ) -> list[dict[str, Any]]:
     """Per-day cheapest-award summary for a route over a date window — the flexible-date heatmap.
 
-    Faithful port of the DuckDB ``get_heatmap``: returns one row per day that has flights,
+    Returns one row per day that has flights,
     ``{date, min_points, flight_count}``. Freshness matches ``get_flights``
     (``f.date >= current_date``, not expires-based). Grouped by day and ordered ``f.date ASC``.
 
@@ -109,10 +108,9 @@ def get_cash_fares(
 ) -> list[dict[str, Any]]:
     """Return fresh (non-expired) cash fares for a route + date range.
 
-    Faithful port of the DuckDB ``get_cash_fares``: filtered on the date window, ``date >=
-    current_date`` and ``expires_at_utc > now()``, optionally by airline / cabin. Ordered by date
-    ASC then cash_price ASC, capped at 200 rows. ``cash_price`` is selected verbatim (NUMERIC →
-    Decimal on both drivers, so no cast).
+    Filtered on the date window, ``date >= current_date`` and ``expires_at_utc > now()``,
+    optionally by airline / cabin. Ordered by date ASC then cash_price ASC, capped at 200 rows.
+    ``cash_price`` is selected verbatim (NUMERIC → Decimal, so no cast).
     """
     filters = [
         "origin = :origin",

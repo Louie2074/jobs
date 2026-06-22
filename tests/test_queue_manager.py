@@ -1,10 +1,9 @@
 """jobs QueueManager: scored get_due_batch + adaptive mark_scraped (vendored).
 
-QueueManager now reads/writes the ``pp.routes_queue`` Postgres table via the ``pp_db.autocommit``
-facade (the MotherDuck→Supabase cutover), so these drive it against the real ``pp`` container
-rather than an in-memory DuckDB. Seeding goes through the facade (the same path QueueManager uses);
-the few raw UPDATEs (forcing routes due / bumping demand) run on a pp_db engine connection. Skips
-if ``DATABASE_URL`` is unset so the hermetic lane stays green.
+QueueManager reads/writes the ``pp.routes_queue`` Postgres table via the ``pp_db.autocommit``
+facade, so these drive it against the real ``pp`` container. Seeding goes through the facade (the
+same path QueueManager uses); the few raw UPDATEs (forcing routes due / bumping demand) run on a
+pp_db engine connection. Skips if ``DATABASE_URL`` is unset so the hermetic lane stays green.
 """
 
 import json

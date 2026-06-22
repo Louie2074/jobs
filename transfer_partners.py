@@ -290,8 +290,8 @@ def reconcile(
 
     ``conn`` is a SQLAlchemy Connection inside a single transaction (opened by ``main()`` via
     ``get_engine().begin()``), so the DELETE + re-INSERT commit atomically — readers never see an
-    empty table, and a mid-insert failure rolls the whole snapshot back (strictly better than the
-    old non-atomic DuckDB autocommit, which mattered because this is the sole owner of the table).
+    empty table, and a mid-insert failure rolls the whole snapshot back (which matters because
+    this is the sole writer of the table).
     """
     if dry_run:
         count = conn.execute(text("SELECT COUNT(*) FROM pp.transfer_partners")).scalar()

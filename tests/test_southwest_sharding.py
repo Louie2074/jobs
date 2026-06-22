@@ -1,9 +1,9 @@
 """Southwest cron runs across N fresh-IP shards (currently 5), partitioning the due set disjointly.
 
 The shard-matrix assertion is pure YAML (no DB — always runs). The plan-partition test exercises
-``build_queue_plan``→``QueueManager``, which after the MotherDuck→Supabase cutover reads
-``pp.routes_queue`` from Postgres, so it seeds the real ``pp`` container via the
-``pp_db.autocommit`` facade and skips when ``DATABASE_URL`` is unset.
+``build_queue_plan``→``QueueManager``, which reads ``pp.routes_queue`` from Postgres, so it seeds
+the real ``pp`` container via the ``pp_db.autocommit`` facade and skips when ``DATABASE_URL`` is
+unset.
 """
 
 import os

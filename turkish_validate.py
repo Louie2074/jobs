@@ -11,8 +11,7 @@ ROUTES = [("SEA", "IST"), ("JFK", "IST")]
 
 
 def _make_scraper():
-    # Deferred import: runs under run_validation's watchdog, and triggers the settings gate
-    # (needs MOTHERDUCK_TOKEN — the workflow sets a dummy; this never hits the DB).
+    # Deferred import: runs under run_validation's watchdog (imports settings; never hits the DB).
     from scrapers.turkish import TurkishScraper
 
     return TurkishScraper()

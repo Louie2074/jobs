@@ -1,6 +1,6 @@
 """Engine / session factories for ``pp_db`` — sync (psycopg3) and async (asyncpg).
 
-Both pin every session to UTC (mirroring the old DuckDB ``SET TimeZone='UTC'``) so the naive
+Both pin every session to UTC (``SET TIME ZONE 'UTC'``) so the naive
 ``*_utc`` timestamps round-trip as UTC, and both are configured for the Supabase **Supavisor
 transaction pooler** (port 6543), which forbids server-side prepared statements.
 

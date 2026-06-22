@@ -1,7 +1,7 @@
 name: transfer-partners
 
 # Scrape thriftytraveler.com for bank→airline transfer partners + ratios and
-# full-table snapshot-replace the transfer_partners table in MotherDuck. Runs
+# full-table snapshot-replace the transfer_partners table in Postgres. Runs
 # twice monthly (1h after transfer-bonuses so partners is fresh first); can also
 # be triggered manually (with optional dry-run mode).
 on:
@@ -19,7 +19,7 @@ on:
 permissions:
   contents: read
 
-# Never let two runs overlap on the shared MotherDuck table.
+# Never let two runs overlap on the shared Postgres table.
 concurrency:
   group: transfer-partners
   cancel-in-progress: false
@@ -41,7 +41,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Scrape and reconcile transfer partners
         env:
-          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BETTERSTACK_SOURCE_TOKEN: ${{ secrets.BETTERSTACK_SOURCE_TOKEN }}
           # Optional Better Stack heartbeat — a missed run then raises an alert. No-op if unset.
           TRANSFER_PARTNERS_HEARTBEAT_URL: ${{ secrets.TRANSFER_PARTNERS_HEARTBEAT_URL }}
