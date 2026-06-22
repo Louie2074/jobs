@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1]
+        shard: [0, 1, 2]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,5 +37,5 @@ jobs:
           BETTERSTACK_LOGS_TOKEN: ${{ secrets.BETTERSTACK_LOGS_TOKEN }}
           BETTERSTACK_LOGS_INGEST_URL: ${{ secrets.BETTERSTACK_LOGS_INGEST_URL }}
           ALASKA_HEARTBEAT_URL: ${{ secrets.ALASKA_HEARTBEAT_URL }}
-          ALASKA_SHARDS: "2"
+          ALASKA_SHARDS: "3"
           ALASKA_SHARD_INDEX: ${{ matrix.shard }}

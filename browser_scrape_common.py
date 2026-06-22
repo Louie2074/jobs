@@ -15,10 +15,25 @@ The entrypoints re-export ``parse_dates_csv``/``build_plan`` as their module-lev
 from __future__ import annotations
 
 import logging
+import os
 import time
 import urllib.request
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+
+# Wall-clock budget for a single cron run. The shared scrape loop stops cleanly between routes
+# once this is reached so a long shard (AS/B6) can never overrun the GitHub-Actions 60-minute job
+# cap and get hard-cancelled mid-run (which drops the scrape_run metric + heartbeat and leaves
+# in-flight routes unmarked). Routes not reached simply stay due for the next run. 45 min leaves
+# ~15 min of headroom under the 60-min workflow timeout.
+DEFAULT_CRON_TIME_BUDGET_S = 2700.0
+
+
+def _default_time_budget_s() -> float:
+    try:
+        return float(os.getenv("CRON_TIME_BUDGET_S", str(DEFAULT_CRON_TIME_BUDGET_S)))
+    except ValueError:
+        return DEFAULT_CRON_TIME_BUDGET_S
 
 
 @dataclass
@@ -182,11 +197,17 @@ def run_scrape(
     heartbeat_url: str,
     logger: logging.Logger,
     route_jobs=None,
+    time_budget_s: float | None = None,
 ) -> int:
     """Run the scrape loop (every route × date), upsert valid+stamped rows, then ship the
     ``scrape_run`` metric + heartbeat. Aborts the run after the scraper raises ScraperBlockedError
     (rows already upserted persist). Always tears the scraper + DB connection down. Returns the
     total rows upserted.
+
+    ``time_budget_s`` (default ``CRON_TIME_BUDGET_S`` env / 45 min) bounds wall-clock: the loop
+    checks it *between* routes (never mid-route) and stops cleanly once reached, so a long shard
+    can't be hard-cancelled by the GitHub-Actions job timeout. Unreached routes stay due (in queue
+    mode they're simply never marked); the ``stopped_early`` metric flag records when this fires.
 
     Two modes:
       * **On-demand** (``route_jobs is None``): iterate ``pairs`` (``(origin, dest)`` tuples),
@@ -215,12 +236,21 @@ def run_scrape(
         iterable = [_PairJob(o, d) for o, d in pairs]
         due_count = len(pairs)
 
+    budget_s = _default_time_budget_s() if time_budget_s is None else time_budget_s
     started = time.monotonic()
     total = error_count = routes_scraped = routes_unchanged = 0
-    blocked = False
+    blocked = stopped_early = False
     try:
         for job in iterable:
             if blocked:
+                break
+            if time.monotonic() - started >= budget_s:
+                stopped_early = True
+                logger.warning(
+                    "time budget %.0fs reached after %d/%d routes — stopping cleanly "
+                    "(unreached routes stay due)",
+                    budget_s, routes_scraped, due_count,
+                )
                 break
             origin, dest = job.origin, job.dest
             route_recs: list = []
@@ -266,6 +296,7 @@ def run_scrape(
             "errors": error_count,
             "duration_s": duration_s,
             "blocked": blocked,
+            "stopped_early": stopped_early,
             **freshness(source, logger),
         }
     )

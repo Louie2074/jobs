@@ -11,11 +11,13 @@ and run inside a rolled-back transaction so they leave the table untouched.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import date
 
 import pytest
 
+import transfer_bonuses
 from transfer_bonuses import parse_bonuses, reconcile
 
 _NEEDS_PG = pytest.mark.skipif(
@@ -68,6 +70,49 @@ HTML_FIXTURE = """\
 """
 
 TODAY = date(2026, 6, 6)
+
+
+# ---------------------------------------------------------------------------
+# _connect_browser — Chrome CDP connect retry (hermetic; uc.start stubbed)
+#
+# On a cold CI runner Chrome can take a variable time to bind its debug port, so a
+# single uc.start() after a fixed sleep races that startup and intermittently raises
+# "Failed to connect to browser" (a real GH-Actions failure, run 27932810187). The
+# connect now retries while Chrome finishes booting.
+# ---------------------------------------------------------------------------
+
+
+def test_connect_browser_retries_until_success(monkeypatch):
+    """uc.start fails twice (port not bound yet) then succeeds — the retry rides it out."""
+    calls = {"n": 0}
+
+    class _FakeBrowser:
+        pass
+
+    async def fake_start(host, port):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise Exception("Failed to connect to browser")
+        return _FakeBrowser()
+
+    monkeypatch.setattr(transfer_bonuses.uc, "start", fake_start)
+
+    browser = asyncio.run(transfer_bonuses._connect_browser(port=9222, attempts=5, delay_s=0.0))
+
+    assert isinstance(browser, _FakeBrowser)
+    assert calls["n"] == 3  # retried twice, connected on the third attempt
+
+
+def test_connect_browser_raises_after_exhausting_attempts(monkeypatch):
+    """Chrome never comes up -> a clear RuntimeError after the attempt budget, not a silent hang."""
+
+    async def always_fail(host, port):
+        raise Exception("Failed to connect to browser")
+
+    monkeypatch.setattr(transfer_bonuses.uc, "start", always_fail)
+
+    with pytest.raises(RuntimeError, match="could not connect"):
+        asyncio.run(transfer_bonuses._connect_browser(port=9222, attempts=3, delay_s=0.0))
 
 
 # ---------------------------------------------------------------------------
