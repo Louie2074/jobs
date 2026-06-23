@@ -74,4 +74,6 @@ def test_no_exact_duplicate_pairs():
         for direction_list in (highs, meds):
             keys = list(direction_list)
             assert len(keys) == len(set(keys)), f"reverse/exact dup in {direction_list}"
-            assert all(origin != dest for origin, dest in keys), "a route cannot have origin == dest"
+            assert all(
+                origin != dest for origin, dest in keys
+            ), "a route cannot have origin == dest"
