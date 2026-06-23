@@ -34,3 +34,21 @@ def test_dense_sparse_dates_dense_then_sparse():
 def test_dense_sparse_dates_no_sparse_when_dense_covers_window():
     out = common.dense_sparse_dates(date(2026, 7, 1), dense_days=5, sparse_step=3, max_day=5)
     assert out == [date(2026, 7, d) for d in (1, 2, 3, 4, 5)]
+
+
+def test_dense_sparse_dates_coarse_tier_for_90d_horizon():
+    # max_day=90 → dense 0-13 daily, sparse 14..29 step 3, coarse 30..89 step 7 (3-month horizon).
+    out = common.dense_sparse_dates(date(2026, 7, 1), dense_days=14, sparse_step=3, max_day=90)
+    offsets = [(d - date(2026, 7, 1)).days for d in out]
+    assert offsets[:14] == list(range(14))  # dense daily
+    assert 29 in offsets  # sparse tail up to the 30d boundary
+    assert [o for o in offsets if o >= 30] == list(range(30, 90, 7))  # coarse: weekly to ~90
+    assert 84 <= max(offsets) <= 89  # reaches ~3 months
+    assert offsets == sorted(set(offsets))  # sorted, deduped
+
+
+def test_dense_sparse_dates_no_coarse_below_boundary():
+    # max_day=30 (browser airlines) stays dense+sparse only — no coarse dates generated.
+    out = common.dense_sparse_dates(date(2026, 7, 1), dense_days=14, sparse_step=3, max_day=30)
+    offsets = [(d - date(2026, 7, 1)).days for d in out]
+    assert all(o < 30 for o in offsets)

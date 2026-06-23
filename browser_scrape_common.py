@@ -62,17 +62,26 @@ def parse_dates_csv(csv: str, logger: logging.Logger | None = None) -> list[date
 
 
 def dense_sparse_dates(
-    today: date, dense_days: int, sparse_step: int, max_day: int
+    today: date,
+    dense_days: int,
+    sparse_step: int,
+    max_day: int,
+    *,
+    sparse_max: int = 30,
+    coarse_step: int = 7,
 ) -> list[date]:
-    """Dates matching the always-on scheduler's profile (``scraper/pipeline/scheduler.py``
-    ``_scrape_window``): every day for the first ``dense_days`` offsets (capped at ``max_day``),
-    then every ``sparse_step``-th day out to ``max_day`` EXCLUSIVE. ``max_day`` is the
-    scrape-days-ahead horizon (the exclusive ``range`` stop), not a final offset. Keeps AS/B6's
-    request-volume profile (and WAF exposure) the same as the proven Fly profile, rather than a
-    flat ``range(scrape_days)``."""
+    """Three-tier scrape window (mirrors ``scraper/pipeline/scheduler.py`` ``_scrape_window``):
+    every day for the first ``dense_days`` offsets, then every ``sparse_step``-th day out to
+    ``sparse_max`` (the 30d near-term boundary), then — when ``max_day`` reaches past it — every
+    ``coarse_step``-th day out to ``max_day`` EXCLUSIVE. The coarse tail lets the httpx airlines
+    (AS/B6, ``<AIRLINE>_SCRAPE_DAYS=90``) cover the 3-month horizon cheaply; with ``max_day<=30``
+    (the browser airlines) no coarse dates are generated, so their profile is unchanged."""
     dense = min(dense_days, max_day)
     offsets = list(range(dense))
-    offsets += list(range(dense, max_day, max(1, sparse_step)))
+    offsets += list(range(dense, min(sparse_max, max_day), max(1, sparse_step)))
+    if max_day > sparse_max:
+        offsets += list(range(sparse_max, max_day, max(1, coarse_step)))
+    offsets = sorted(set(offsets))
     return [today + timedelta(days=n) for n in offsets]
 
 
