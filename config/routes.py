@@ -14,13 +14,14 @@ LOW routes are added dynamically via handle_user_search().
 
 Live airlines are Alaska + JetBlue. Alaska runs daily — every route is MED; HIGH is
 intentionally empty (the 3×/day HIGH refresh oversubscribed the shared single-IP worker).
-JetBlue covers 13 pairs anchored on JFK/BOS/FLL/EWR. American (AAdvantage) was removed
-(Akamai-walled). Delta is scraped from the points-pilot-jobs repo (nodriver browser
-scrape), not here.
+Alaska covers 115 pairs (US hubs ↔ domestic + partner-business intl nonstops). JetBlue
+covers 46 pairs anchored on JFK/BOS/FLL/EWR (after NYC/LA metro fan-out), incl. transcon +
+TATL Mint business. American (AAdvantage) was removed (Akamai-walled). Delta is scraped from
+the points-pilot-jobs repo (nodriver browser scrape), not here.
 """
 
-from config.settings import PriorityTier
 from config.metros import airports_for
+from config.settings import PriorityTier
 
 
 def route_set(origin: str, dest: str) -> list[tuple[str, str]]:
@@ -116,17 +117,27 @@ ALASKA_MED_ROUTES: list[tuple[str, str]] = [
     ("LAX", "PHX"),
     ("SAN", "SFO"),
     ("ANC", "PDX"),
-    # coverage-expansion 2026-06-23 — international partner nonstops (AS Mileage Plan)
-    ("SEA", "HND"), ("SFO", "HND"), ("LAX", "HND"),   # JAL
-    ("SEA", "NRT"), ("LAX", "NRT"),                     # JAL
-    ("SFO", "HKG"), ("LAX", "HKG"),                     # Cathay
-    ("SFO", "SYD"), ("LAX", "SYD"),                     # Qantas
-    ("SFO", "TPE"), ("LAX", "TPE"),                     # Starlux
-    ("SEA", "LHR"), ("SFO", "LHR"), ("LAX", "LHR"),    # BA
-    # new US origins → existing dests
+    # coverage-expansion 2026-06-23 - international partner nonstops (AS Mileage Plan)
+    ("SEA", "HND"), ("SFO", "HND"), ("LAX", "HND"),
+    ("SEA", "NRT"), ("LAX", "NRT"),
+    ("SFO", "HKG"), ("LAX", "HKG"),
+    ("SFO", "SYD"), ("LAX", "SYD"),
+    ("SFO", "TPE"), ("LAX", "TPE"),
+    ("SEA", "LHR"), ("SFO", "LHR"), ("LAX", "LHR"),
+    # coverage-expansion 2026-06-23 - new US origins to existing dests
     ("DEN", "SEA"), ("DEN", "LAX"), ("DEN", "SFO"),
     ("PHX", "SEA"), ("AUS", "SEA"), ("MSP", "SEA"),
     ("SAN", "PDX"), ("SJC", "LAX"), ("GEG", "LAX"),
+    # business-coverage 2026-06-25 (POI-20 lever #3) - more partner-business intl gateways.
+    # AS "business" = partner premium-cabin awards on intl nonstops (oneworld + AS partners);
+    # only real, confirmed nonstop partner routes, skipping pairs already covered above.
+    ("SEA", "HKG"), ("JFK", "HKG"), ("BOS", "HKG"), ("ORD", "HKG"), ("DFW", "HKG"),  # Cathay
+    ("SEA", "DOH"), ("JFK", "DOH"), ("BOS", "DOH"), ("ORD", "DOH"),                   # Qatar
+    ("JFK", "HEL"), ("LAX", "HEL"), ("DFW", "HEL"),                                   # Finnair
+    ("JFK", "MAD"), ("ORD", "MAD"),                                                   # Iberia
+    ("ORD", "HND"), ("JFK", "HND"), ("DFW", "HND"),                                   # JAL gateways
+    ("LAX", "BNE"), ("JFK", "SYD"),                                                   # Qantas
+    ("LAX", "GRU"), ("JFK", "GRU"), ("JFK", "SCL"), ("LAX", "SCL"),                   # LATAM
 ]
 
 # Delta is no longer scraped from this repo — it runs as a nodriver browser scrape in the
@@ -202,11 +213,11 @@ DELTA_MED_ROUTES: list[tuple[str, str]] = [
     ("SEA", "DEN"),
     ("SEA", "LAS"),
     ("LAX", "DEN"),
-    # coverage-expansion 2026-06-23 — SkyTeam intl partners + hub spokes
-    ("DTW", "ICN"), ("ATL", "ICN"),                    # Korean
-    ("JFK", "CDG"), ("ATL", "CDG"),                    # Air France
-    ("DTW", "AMS"), ("ATL", "AMS"),                    # KLM
-    ("ATL", "GRU"),                                    # LATAM
+    # coverage-expansion 2026-06-23 - SkyTeam intl partners + hub spokes
+    ("DTW", "ICN"), ("ATL", "ICN"),
+    ("JFK", "CDG"), ("ATL", "CDG"),
+    ("DTW", "AMS"), ("ATL", "AMS"),
+    ("ATL", "GRU"),
     ("ATL", "SLC"), ("ATL", "MSP"), ("DTW", "MSP"),
     ("SLC", "SFO"), ("SLC", "PHX"), ("JFK", "BOS"),
     ("MSP", "SFO"), ("MSP", "PHX"),
@@ -262,7 +273,7 @@ SOUTHWEST_MED_ROUTES: list[tuple[str, str]] = [
     ("SAN", "SMF"),
     ("HOU", "MCO"),
     ("SEA", "OAK"),
-    # coverage-expansion 2026-06-23 — domestic focus-city mesh
+    # coverage-expansion 2026-06-23 - domestic focus-city mesh
     ("DEN", "AUS"), ("DEN", "TPA"), ("DEN", "MSY"), ("DEN", "BNA"),
     ("MDW", "DEN"), ("MDW", "TPA"), ("MDW", "AUS"),
     ("BWI", "MDW"), ("BWI", "ATL"), ("BWI", "SAN"),
@@ -294,7 +305,7 @@ TURKISH_MED_ROUTES: list[tuple[str, str]] = [
     ("SLC", "IST"),
     ("PDX", "IST"),
     ("LAS", "IST"),
-    # coverage-expansion 2026-06-23 — more US gateways → IST
+    # coverage-expansion 2026-06-23 - more US gateways to IST
     ("SAN", "IST"), ("AUS", "IST"), ("RDU", "IST"),
     ("BWI", "IST"), ("MSP", "IST"),
 ]
@@ -313,7 +324,7 @@ ETIHAD_MED_ROUTES: list[tuple[str, str]] = [
     ("IAH", "AUH"),
     ("ATL", "AUH"),
     ("MIA", "AUH"),
-    # coverage-expansion 2026-06-23 — more US gateways → AUH
+    # coverage-expansion 2026-06-23 - more US gateways to AUH
     ("DFW", "AUH"), ("SEA", "AUH"), ("DCA", "AUH"),
 ]
 
@@ -338,10 +349,16 @@ JETBLUE_MED_ROUTES: list[tuple[str, str]] = [
     ("BOS", "LAX"),
     ("FLL", "EWR"),
     ("EWR", "MCO"),
-    # coverage-expansion 2026-06-23 — transcon + Caribbean/LatAm + TATL partner
+    # coverage-expansion 2026-06-23 - transcon + Caribbean/LatAm + TATL partner
     ("JFK", "LAX"), ("JFK", "SAN"), ("JFK", "AUS"), ("JFK", "SJU"),
     ("BOS", "SFO"), ("BOS", "SEA"), ("BOS", "SJU"),
     ("FLL", "SJU"), ("EWR", "FLL"), ("JFK", "LHR"), ("BOS", "LHR"),
+    # business-coverage 2026-06-25 (POI-20 lever #3) - more Mint (B6 business cabin):
+    # transcon Mint + TATL Mint + premium Caribbean, all real Mint-served nonstops.
+    ("EWR", "LAX"), ("EWR", "SFO"), ("BOS", "SAN"),                # transcon Mint (more gateways)
+    ("FLL", "LAX"), ("FLL", "SFO"), ("FLL", "SAN"),                # FLL premium transcon Mint
+    ("JFK", "CDG"), ("BOS", "CDG"), ("JFK", "AMS"), ("BOS", "AMS"),  # TATL Mint
+    ("EWR", "SJU"),                                                # premium Caribbean Mint
 ]
 
 
@@ -369,8 +386,7 @@ CASH_PINNED_ROUTES: list[tuple[str, str]] = [
     *route_set("PDX", "NYC"),
     *route_set("SFO", "NYC"),
     *route_set("LAX_METRO", "NYC"),
-    # coverage-expansion 2026-06-23 — guarantee day-one CPP for the Explore-facing intl routes
-    # (zero organic demand initially, so they'd be crowded out of the demand-ranked cash queue).
+    # coverage-expansion 2026-06-23 - guarantee day-one CPP for the Explore-facing intl routes
     ("SEA", "HND"), ("SFO", "HND"), ("LAX", "HND"),
     ("LAX", "NRT"), ("SFO", "HKG"), ("LAX", "SYD"), ("LAX", "TPE"),
     ("SEA", "LHR"), ("DTW", "ICN"), ("JFK", "CDG"), ("DTW", "AMS"),

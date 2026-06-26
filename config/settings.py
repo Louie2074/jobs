@@ -147,9 +147,13 @@ CRON_MAX_LEGS_PER_SHARD: dict[str, int] = {
     "southwest": int(_get("SOUTHWEST_MAX_LEGS_PER_SHARD", "20")),
     "turkish": int(_get("TURKISH_MAX_LEGS_PER_SHARD", "20")),
     "etihad": int(_get("ETIHAD_MAX_LEGS_PER_SHARD", "20")),
-    # Alaska: ~55 MED pairs (110 directed legs). Single Fly IP already scrapes the full
-    # catalogue safely, so a generous cap + a small shard fan-out covers it within a 6h job.
+    # Alaska: 115 MED pairs (230 directed legs after the POI-20 lever #3 partner-business intl
+    # expansion). 40/shard × 3 shards = 120 candidate pool/run; the 3×/day cron + never-scraped
+    # floor (queue_manager.get_due_batch) drains the catalogue with margin. httpx headroom is wide
+    # (40 legs × 29 dates ≈ 1160 req/IP/run runs clean — Azure probe 0 blocks).
     "alaska": int(_get("ALASKA_MAX_LEGS_PER_SHARD", "40")),
-    # JetBlue: ~13 pairs (26 directed legs) — one shard covers it.
-    "jetblue": int(_get("JETBLUE_MAX_LEGS_PER_SHARD", "30")),
+    # JetBlue: 46 MED pairs (92 directed legs after the Mint business expansion, POI-20 lever #3).
+    # 36/shard × 3 shards = 108 candidate pool/run covers the 92 directed + LOW on-demand tail.
+    # 36 legs × 24 dates ≈ 864 req/IP/run — below Alaska's clean 1160, so WAF-safe on httpx.
+    "jetblue": int(_get("JETBLUE_MAX_LEGS_PER_SHARD", "36")),
 }

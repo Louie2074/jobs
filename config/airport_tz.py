@@ -6,50 +6,57 @@ and makes the award scrapers drop departure times — add an entry before onboar
 airport. `tests/test_airport_tz.py` guards that every seeded route airport is mapped."""
 
 AIRPORT_TZ: dict[str, str] = {
-    "AMS": "Europe/Amsterdam",   # Amsterdam — Delta/KLM (SkyTeam) origin
+    "AMS": "Europe/Amsterdam",  # Amsterdam — Delta/KLM (SkyTeam) origin
     "ANC": "America/Anchorage",
     "ATL": "America/New_York",
     "AUH": "Asia/Dubai",  # Abu Dhabi — Etihad Guest hub (UTC+4, no DST)
     "AUS": "America/Chicago",
     "BNA": "America/Chicago",
+    "BNE": "Australia/Brisbane",  # Brisbane — Alaska/Qantas origin (UTC+10, no DST)
     "BOI": "America/Boise",
     "BOS": "America/New_York",
+    "BUR": "America/Los_Angeles",  # Burbank — LAX metro
     "BWI": "America/New_York",
-    "CDG": "Europe/Paris",        # Paris CDG — Delta/Air France (SkyTeam) origin
+    "CDG": "Europe/Paris",  # Paris CDG — Delta/Air France (SkyTeam) + JetBlue Mint origin
     "CLT": "America/New_York",
     "DAL": "America/Chicago",
     "DCA": "America/New_York",
     "DEN": "America/Denver",
     "DFW": "America/Chicago",
+    "DOH": "Asia/Qatar",  # Doha — Alaska/Qatar (oneworld) origin (UTC+3, no DST)
     "DTW": "America/New_York",
     "EWR": "America/New_York",
     "FAI": "America/Anchorage",
     "FLL": "America/New_York",
     "GEG": "America/Los_Angeles",
-    "GRU": "America/Sao_Paulo",   # São Paulo — Delta/LATAM (SkyTeam) origin
-    "HKG": "Asia/Hong_Kong",      # Hong Kong — Alaska/Cathay origin
+    "GRU": "America/Sao_Paulo",  # Sao Paulo — Delta/LATAM + Alaska/LATAM origin
+    "HEL": "Europe/Helsinki",  # Helsinki — Alaska/Finnair (oneworld) origin
+    "HKG": "Asia/Hong_Kong",  # Hong Kong — Alaska/Cathay origin
     "HND": "Asia/Tokyo",  # Tokyo Haneda — Alaska partner (JAL) origin
     "HNL": "Pacific/Honolulu",
     "HOU": "America/Chicago",
     "IAD": "America/New_York",
     "IAH": "America/Chicago",
-    "ICN": "Asia/Seoul",          # Seoul Incheon — Delta/Korean (SkyTeam) origin
-    "IST": "Europe/Istanbul",  # Istanbul — Turkish Miles&Smiles hub (return-leg departure times)
+    "ICN": "Asia/Seoul",  # Seoul Incheon — Delta/Korean (SkyTeam) origin
+    "IST": "Europe/Istanbul",  # Istanbul — Turkish hub; needed for cash-matcher origin-local time
     "JFK": "America/New_York",
     "KOA": "Pacific/Honolulu",
     "LAS": "America/Los_Angeles",
     "LAX": "America/Los_Angeles",
     "LGA": "America/New_York",
+    "LGB": "America/Los_Angeles",  # Long Beach — LAX metro
     "LHR": "Europe/London",  # London Heathrow — Alaska partner (BA) origin
     "LIH": "Pacific/Honolulu",
+    "MAD": "Europe/Madrid",  # Madrid — Alaska/Iberia (oneworld) origin
     "MCO": "America/New_York",
     "MDW": "America/Chicago",
     "MIA": "America/New_York",
     "MSP": "America/Chicago",
-    "MSY": "America/Chicago",     # New Orleans — Southwest spoke
-    "NRT": "Asia/Tokyo",          # Tokyo Narita — Alaska/JAL origin
+    "MSY": "America/Chicago",  # New Orleans — Southwest spoke
+    "NRT": "Asia/Tokyo",  # Tokyo Narita — Alaska/JAL origin
     "OAK": "America/Los_Angeles",
     "OGG": "Pacific/Honolulu",
+    "ONT": "America/Los_Angeles",  # Ontario — LAX metro
     "ORD": "America/Chicago",
     "PDX": "America/Los_Angeles",
     "PHL": "America/New_York",
@@ -58,6 +65,7 @@ AIRPORT_TZ: dict[str, str] = {
     "RDU": "America/New_York",
     "RSW": "America/New_York",
     "SAN": "America/Los_Angeles",
+    "SCL": "America/Santiago",  # Santiago — Alaska/LATAM origin
     "SEA": "America/Los_Angeles",
     "SFO": "America/Los_Angeles",
     "SJC": "America/Los_Angeles",
@@ -65,7 +73,7 @@ AIRPORT_TZ: dict[str, str] = {
     "SLC": "America/Denver",
     "SMF": "America/Los_Angeles",  # Sacramento — Southwest focus-city spoke
     "SNA": "America/Los_Angeles",
-    "SYD": "Australia/Sydney",     # Sydney — Alaska/Qantas origin
-    "TPE": "Asia/Taipei",          # Taipei — Alaska/Starlux origin
+    "SYD": "Australia/Sydney",  # Sydney — Alaska/Qantas origin
     "TPA": "America/New_York",
+    "TPE": "Asia/Taipei",  # Taipei — Alaska/Starlux origin
 }

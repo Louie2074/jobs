@@ -3,7 +3,11 @@ name: JetBlue award scrape
 on:
   workflow_dispatch:
   schedule:
-    - cron: "37 2,14 * * *"   # 2×/day, offset clear of the award block
+    # 3×/day (was 2×). The route set grew with partner/Mint business pairs (POI-20 lever #3),
+    # so a third run drains the larger queue + the never-scraped tail faster. Each run reuses the
+    # same 3-shard / fresh-IP footprint at a different hour (time-separation, not more parallel
+    # IPs), keeping per-IP volume WAF-safe. Offset to :37 and clear of the 08–11 UTC award block.
+    - cron: "37 2,14,20 * * *"
 
 permissions:
   contents: read

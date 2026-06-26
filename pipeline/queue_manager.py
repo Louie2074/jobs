@@ -120,7 +120,15 @@ class QueueManager:
         """Return up to ``limit`` due routes, ordered by priority score (demand × overdue ×
         change-rate). Fetches SCORE_FETCH_MULTIPLE×limit most-overdue candidates from SQL, then
         score-sorts in Python and truncates — so the score reorders across more than just the
-        single most-overdue slice. ``airline`` filters to one scraper's queue."""
+        single most-overdue slice. ``airline`` filters to one scraper's queue.
+
+        **Never-scraped routes sort FIRST** (ahead of the demand/overdue score), so a freshly
+        seeded route with zero organic demand — e.g. a newly added partner-business intl or Mint
+        pair — can't be starved out of the batch by established high-demand routes. We have no data
+        at all on a never-scraped route, so getting it its first scrape is the highest priority;
+        once it has been scraped once it rejoins the normal scored pool. This only reorders within
+        the existing ``limit`` (no extra requests), so it's WAF-neutral. Per-airline batching means
+        promoting JetBlue's never-scraped tail never touches Alaska's slots."""
         fetch = max(limit, limit * SCORE_FETCH_MULTIPLE)
         rows = db.get_due_routes(limit=fetch, airline=airline)
         now = datetime.now(timezone.utc)
@@ -146,7 +154,12 @@ class QueueManager:
                 demand_ref=DEMAND_REF,
             )
 
-        rows.sort(key=_score, reverse=True)
+        def _sort_key(r: dict) -> tuple[int, float]:
+            # never_scraped (last_scraped_at IS NULL) → 0 sorts ahead of scraped (1); then by score.
+            never_scraped = 0 if r["last_scraped_at"] is None else 1
+            return (never_scraped, -_score(r))
+
+        rows.sort(key=_sort_key)
         rows = rows[:limit]
         return [
             RouteJob(
