@@ -17,7 +17,7 @@ CRON_AIRLINES = {"delta", "southwest", "turkish", "etihad"}
 EXPECTED_PAIR_COUNTS = {
     "alaska": 120,  # +23 partner-business intl pairs (POI-20 lever #3)
     "jetblue": 49,  # +11 transcon/TATL Mint business pairs (POI-20 lever #3)
-    "delta": 65,
+    "delta": 92,  # +27 SkyTeam intl-widebody + domestic pairs (POI-20 business)
     "southwest": 58,
     "turkish": 25,
     "etihad": 13,

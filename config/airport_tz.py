@@ -50,6 +50,7 @@ AIRPORT_TZ: dict[str, str] = {
     "MAD": "Europe/Madrid",  # Madrid — Alaska/Iberia (oneworld) origin
     "MCO": "America/New_York",
     "MDW": "America/Chicago",
+    "MEX": "America/Mexico_City",  # Mexico City — Delta/Aeroméxico (SkyTeam) origin
     "MIA": "America/New_York",
     "MSP": "America/Chicago",
     "MSY": "America/Chicago",  # New Orleans — Southwest spoke
