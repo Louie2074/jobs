@@ -154,7 +154,10 @@ ALASKA_MED_ROUTES: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 
 # Delta SkyMiles — anchored on ATL/MSP/DTW/SLC hubs + JFK/LAX/SEA/BOS gateways.
-# 26 → 50 directed pairs.
+# 62 → 89 undirected pairs (124 → 178 directed). The 2026-06-25 expansion adds
+# SkyTeam INTERNATIONAL WIDEBODY routes where Delta One business actually exists
+# (AMS/KLM, CDG/Air France, LHR/Virgin Atlantic, ICN/Korean, NRT/HND, GRU/SCL/MEX)
+# plus a couple of domestic spokes — this is what thickens the thin Delta-business cabin.
 DELTA_MED_ROUTES: list[tuple[str, str]] = [
     # existing ATL megahub + transcons
     ("ATL", "LAX"),
@@ -221,6 +224,20 @@ DELTA_MED_ROUTES: list[tuple[str, str]] = [
     ("ATL", "SLC"), ("ATL", "MSP"), ("DTW", "MSP"),
     ("SLC", "SFO"), ("SLC", "PHX"), ("JFK", "BOS"),
     ("MSP", "SFO"), ("MSP", "PHX"),
+    # business-coverage 2026-06-25 (POI-20) - SkyTeam INTERNATIONAL WIDEBODY (Delta One business
+    # exists on these — the point of this expansion); real Delta-or-SkyTeam-partner nonstops only,
+    # skipping intl pairs already covered above (DTW/ATL-ICN, JFK/ATL-CDG, DTW/ATL-AMS, ATL-GRU).
+    ("MSP", "AMS"), ("SLC", "AMS"), ("SEA", "AMS"),
+    ("BOS", "AMS"), ("JFK", "AMS"), ("LAX", "AMS"),  # KLM/Delta
+    ("MSP", "CDG"), ("BOS", "CDG"), ("SEA", "CDG"),
+    ("LAX", "CDG"), ("DTW", "CDG"), ("SLC", "CDG"),  # Air France/Delta
+    ("JFK", "LHR"), ("BOS", "LHR"), ("ATL", "LHR"),
+    ("LAX", "LHR"), ("SEA", "LHR"), ("DTW", "LHR"),  # Virgin Atlantic/Delta
+    ("SEA", "ICN"), ("MSP", "ICN"), ("LAX", "ICN"),  # Korean/Delta
+    ("DTW", "NRT"), ("ATL", "HND"),  # Delta Japan widebody
+    ("JFK", "GRU"), ("ATL", "SCL"),  # Delta South America widebody
+    ("ATL", "MEX"),  # Aeroméxico/Delta
+    ("ATL", "SAN"),  # domestic hub spoke (round out)
 ]
 
 # Southwest Rapid Rewards — focus cities DEN/MDW/BWI/LAS/PHX/DAL/HOU/OAK/SAN.
