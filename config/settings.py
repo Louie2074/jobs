@@ -181,7 +181,8 @@ CRON_MAX_LEGS_PER_SHARD: dict[str, int] = {
     # get 403'd within a few routes, ~1/3 run clean (validated 2026-06-19 — shards blocked at 3 / 5
     # routes while a third did its full cap unblocked). So the cap only bounds the CLEAN shards;
     # keep it generous (20) to maximize their coverage. The 3-shard fan-out is the real mitigation
-    # (more IP draws → better odds of a clean one). A 10 cap was tried and REDUCED coverage (18 vs 36).
+    # (more IP draws → better odds of a clean one). A 10 cap was tried and reduced coverage
+    # (18 vs 36).
     "southwest": int(_get("SOUTHWEST_MAX_LEGS_PER_SHARD", "20")),
     "turkish": int(_get("TURKISH_MAX_LEGS_PER_SHARD", "20")),
     "etihad": int(_get("ETIHAD_MAX_LEGS_PER_SHARD", "20")),
@@ -191,7 +192,8 @@ CRON_MAX_LEGS_PER_SHARD: dict[str, int] = {
     # (40 legs × 29 dates ≈ 1160 req/IP/run runs clean — Azure probe 0 blocks).
     "alaska": int(_get("ALASKA_MAX_LEGS_PER_SHARD", "40")),
     # JetBlue: 46 MED pairs (92 directed legs after the Mint business expansion, POI-20 lever #3).
-    # 36/shard × 3 shards = 108 candidate pool/run covers the 92 directed + LOW on-demand tail.
+    # 36/shard × 4 shards = 144 candidate pool/run covers the 92 directed set plus the LOW
+    # on-demand tail with margin after the measured four-shard Actions density bump.
     # 36 legs × 24 dates ≈ 864 req/IP/run — below Alaska's clean 1160, so WAF-safe on httpx.
     "jetblue": int(_get("JETBLUE_MAX_LEGS_PER_SHARD", "36")),
 }

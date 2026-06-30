@@ -5,6 +5,7 @@ name: cash-browser-scrape
 # VENDORED from points-pilot-scrapers (see VENDORED_DELTA.md), so no cross-repo checkout / PAT is
 # needed. Headful Chrome under xvfb. Sharded across parallel runs (a whole route stays on one
 # shard) — coverage → scrape → match → upsert into Postgres `pp.cash_fares` (powers CPP).
+# The legacy Fly `point-pilot-gflights` machine was stopped on 2026-06-30; Actions owns capacity.
 on:
   workflow_dispatch:
   schedule:
@@ -32,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v6
       - name: Scrape Google Flights cash fares (headful Chrome under xvfb, Azure IP)
@@ -43,7 +44,7 @@ jobs:
           BETTERSTACK_LOGS_TOKEN: ${{ secrets.BETTERSTACK_LOGS_TOKEN }}
           BETTERSTACK_LOGS_INGEST_URL: ${{ secrets.BETTERSTACK_LOGS_INGEST_URL }}
           GFLIGHTS_HEARTBEAT_URL: ${{ secrets.GFLIGHTS_HEARTBEAT_URL }}
-          CASH_SHARDS: "4"
+          CASH_SHARDS: "6"
           CASH_SHARD_INDEX: ${{ matrix.shard }}
           CASH_SCRAPE_DAYS: "30"
           CASH_TOP_ROUTES: "600"
