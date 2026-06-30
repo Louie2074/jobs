@@ -192,4 +192,3 @@ git commit -m "chore: increase safe scraper density"
 ```
 
 Expected: commit succeeds.
-
