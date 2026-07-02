@@ -15,9 +15,9 @@ from config.settings import PriorityTier
 
 CRON_AIRLINES = {"delta", "southwest", "turkish", "etihad"}
 EXPECTED_PAIR_COUNTS = {
-    "alaska": 121,  # +1 SFO-LAX (free-tier data-quality expansion 2026-06-28)
-    "jetblue": 52,  # +3 Miami markets (JFK/BOS-MIA, FLL-JFK) — free-tier data-quality 2026-06-28
-    "delta": 102,  # +10 leisure/transcon (NYC/BOS-MIA, FLL-NYC, LAX-Florida, SFO-LAX) — 2026-06-28
+    "alaska": 137,
+    "jetblue": 62,
+    "delta": 113,
     "southwest": 58,
     "turkish": 25,
     "etihad": 13,

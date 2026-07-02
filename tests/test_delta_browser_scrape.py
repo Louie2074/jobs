@@ -1,6 +1,10 @@
 from datetime import date
 
+import yaml
+
 from delta_browser_scrape import _build_plan, _parse_dates_csv
+
+_WF = ".github/workflows/delta-browser-scrape.yml"
 
 
 class _StubScraper:
@@ -12,6 +16,18 @@ class _StubScraper:
 
 def test_parse_dates_csv_valid():
     assert _parse_dates_csv("2026-06-20,2026-06-21") == [date(2026, 6, 20), date(2026, 6, 21)]
+
+
+def test_delta_workflow_shard_matrix_is_consistent():
+    with open(_WF) as f:
+        wf = yaml.safe_load(f)
+    job = wf["jobs"]["scrape"]
+    shards = job["strategy"]["matrix"]["shard"]
+    env = job["steps"][-1]["env"]
+    n = int(env["DELTA_SHARDS"])
+    assert shards == list(range(n)), f"matrix {shards} must be range(DELTA_SHARDS={n})"
+    assert n >= 6, "Delta runs at least 6 fresh-IP shards"
+    assert env["DELTA_SHARD_INDEX"] == "${{ matrix.shard }}"
 
 
 def test_parse_dates_csv_drops_invalid_and_blanks():

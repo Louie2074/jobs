@@ -37,5 +37,5 @@ def test_jetblue_workflow_shard_matrix_is_consistent():
     env = job["steps"][-1]["env"]
     n = int(env["JETBLUE_SHARDS"])
     assert shards == list(range(n)), f"matrix {shards} must be range(JETBLUE_SHARDS={n})"
-    assert n >= 2, "JetBlue runs at least 2 fresh-IP shards"
+    assert n >= 4, "JetBlue runs at least 4 fresh-IP shards"
     assert env["JETBLUE_SHARD_INDEX"] == "${{ matrix.shard }}"

@@ -23,5 +23,5 @@ def test_alaska_workflow_shard_matrix_is_consistent():
     env = job["steps"][-1]["env"]
     n = int(env["ALASKA_SHARDS"])
     assert shards == list(range(n)), f"matrix {shards} must be range(ALASKA_SHARDS={n})"
-    assert n >= 3, "Alaska runs at least 3 fresh-IP shards"
+    assert n >= 4, "Alaska runs at least 4 fresh-IP shards"
     assert env["ALASKA_SHARD_INDEX"] == "${{ matrix.shard }}"

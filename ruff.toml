@@ -3,6 +3,7 @@
 # otherwise, which would diverge them from the canonical scraper repo).
 line-length = 100
 target-version = "py311"
+exclude = ["pp_db"]
 
 [lint]
 select = ["E", "F", "I", "UP", "B"]
