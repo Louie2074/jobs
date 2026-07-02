@@ -9,8 +9,10 @@ AIRPORT_TZ: dict[str, str] = {
     "AMS": "Europe/Amsterdam",  # Amsterdam — Delta/KLM (SkyTeam) origin
     "ANC": "America/Anchorage",
     "ATL": "America/New_York",
+    "ATH": "Europe/Athens",
     "AUH": "Asia/Dubai",  # Abu Dhabi — Etihad Guest hub (UTC+4, no DST)
     "AUS": "America/Chicago",
+    "BCN": "Europe/Madrid",
     "BNA": "America/Chicago",
     "BNE": "Australia/Brisbane",  # Brisbane — Alaska/Qantas origin (UTC+10, no DST)
     "BOI": "America/Boise",
@@ -19,16 +21,22 @@ AIRPORT_TZ: dict[str, str] = {
     "BWI": "America/New_York",
     "CDG": "Europe/Paris",  # Paris CDG — Delta/Air France (SkyTeam) + JetBlue Mint origin
     "CLT": "America/New_York",
+    "CPH": "Europe/Copenhagen",
+    "CTA": "Europe/Rome",
     "DAL": "America/Chicago",
     "DCA": "America/New_York",
     "DEN": "America/Denver",
     "DFW": "America/Chicago",
     "DOH": "Asia/Qatar",  # Doha — Alaska/Qatar (oneworld) origin (UTC+3, no DST)
+    "DUB": "Europe/Dublin",
     "DTW": "America/New_York",
+    "EDI": "Europe/London",
     "EWR": "America/New_York",
     "EZE": "America/Argentina/Buenos_Aires",  # Buenos Aires Ezeiza — JetBlue route timezone
     "FAI": "America/Anchorage",
+    "FCO": "Europe/Rome",
     "FLL": "America/New_York",
+    "FRA": "Europe/Berlin",
     "GEG": "America/Los_Angeles",
     "GRU": "America/Sao_Paulo",  # Sao Paulo — Delta/LATAM + Alaska/LATAM origin
     "HEL": "Europe/Helsinki",  # Helsinki — Alaska/Finnair (oneworld) origin
@@ -41,11 +49,13 @@ AIRPORT_TZ: dict[str, str] = {
     "ICN": "Asia/Seoul",  # Seoul Incheon — Delta/Korean (SkyTeam) origin
     "IST": "Europe/Istanbul",  # Istanbul — Turkish hub; needed for cash-matcher origin-local time
     "JFK": "America/New_York",
+    "KEF": "Atlantic/Reykjavik",
     "KOA": "Pacific/Honolulu",
     "LAS": "America/Los_Angeles",
     "LAX": "America/Los_Angeles",
     "LGA": "America/New_York",
     "LGB": "America/Los_Angeles",  # Long Beach — LAX metro
+    "LGW": "Europe/London",
     "LHR": "Europe/London",  # London Heathrow — Alaska partner (BA) origin
     "LIH": "Pacific/Honolulu",
     "MAD": "Europe/Madrid",  # Madrid — Alaska/Iberia (oneworld) origin
@@ -53,12 +63,17 @@ AIRPORT_TZ: dict[str, str] = {
     "MDW": "America/Chicago",
     "MEX": "America/Mexico_City",  # Mexico City — Delta/Aeroméxico (SkyTeam) origin
     "MIA": "America/New_York",
+    "MLA": "Europe/Malta",
     "MSP": "America/Chicago",
     "MSY": "America/Chicago",  # New Orleans — Southwest spoke
+    "MXP": "Europe/Rome",
+    "NCE": "Europe/Paris",
     "NRT": "Asia/Tokyo",  # Tokyo Narita — Alaska/JAL origin
     "OAK": "America/Los_Angeles",
     "OGG": "Pacific/Honolulu",
+    "OLB": "Europe/Rome",
     "ONT": "America/Los_Angeles",  # Ontario — LAX metro
+    "OPO": "Europe/Lisbon",
     "ORD": "America/Chicago",
     "PDX": "America/Los_Angeles",
     "PHL": "America/New_York",

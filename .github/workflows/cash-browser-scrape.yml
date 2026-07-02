@@ -9,8 +9,7 @@ name: cash-browser-scrape
 on:
   workflow_dispatch:
   schedule:
-    - cron: "15 6 * * *"   # daily at 06:15 UTC (clear of the award scrapes 08-11 + 20)
-    - cron: "15 18 * * *"  # 2nd daily run halves the effective cash TTL
+    - cron: "15 6,14,22 * * *"  # 3x/day, clear of the 08-11 UTC browser block + 20 UTC Delta
 
 permissions:
   contents: read
@@ -47,5 +46,5 @@ jobs:
           CASH_SHARDS: "6"
           CASH_SHARD_INDEX: ${{ matrix.shard }}
           CASH_SCRAPE_DAYS: "30"
-          CASH_TOP_ROUTES: "600"
+          CASH_TOP_ROUTES: "800"
         run: xvfb-run -a python cash_browser_scrape.py

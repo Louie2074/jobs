@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2]
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,7 +37,7 @@ jobs:
           BETTERSTACK_LOGS_TOKEN: ${{ secrets.BETTERSTACK_LOGS_TOKEN }}
           BETTERSTACK_LOGS_INGEST_URL: ${{ secrets.BETTERSTACK_LOGS_INGEST_URL }}
           ALASKA_HEARTBEAT_URL: ${{ secrets.ALASKA_HEARTBEAT_URL }}
-          ALASKA_SHARDS: "3"
+          ALASKA_SHARDS: "4"
           ALASKA_SHARD_INDEX: ${{ matrix.shard }}
           # 3-month horizon (dense 0-14d / sparse to 30d / weekly coarse tail to 90d ≈ 29 dates).
           # Alaska carries the international partner award space Explore surfaces; httpx is cheap.
